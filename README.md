@@ -3,7 +3,7 @@ Applying 3D CNN for bio-medical images segmentation in pytorch.
 
 ## 3D U-Net
 ### Architecture
-![](images/3D-UNet.png)
+![](images/3dresunet.png)
 
-### Reference: usuyama/pytorch-unet
+### Reference: wolny/pytorch-3dunet, milesial/Pytorch-UNet
 

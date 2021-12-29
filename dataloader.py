@@ -7,10 +7,10 @@ class MRIDataset(Dataset):
     def __init__(self, train=True, transform=True):
         super().__init__()
 
-        self.h5ftrain = h5py.File('T2train.h5','r')
-        self.h5ftrainmask = h5py.File('T2trainmask.h5','r')
-        self.h5ftest = h5py.File('T2test.h5','r')
-        self.h5ftestmask = h5py.File('T2testmask.h5','r')
+        self.h5ftrain = h5py.File('dataset/T2train.h5','r')
+        self.h5ftrainmask = h5py.File('dataset/T2trainmask.h5','r')
+        self.h5ftest = h5py.File('dataset/T2test.h5','r')
+        self.h5ftestmask = h5py.File('dataset/T2testmask.h5','r')
 
         self.train = train
         self.transform = transform
