@@ -27,9 +27,10 @@ def check_accuracy(loader, model, device="cuda"):
 
     with torch.no_grad():
         for x, y in loader:
-            x = x.to(device)
-            y = y.to(device)
+            x = x.float().to(device)
+            y = y.float().to(device)
             preds = torch.sigmoid(model(x))
+
             preds = (preds > 0.5).float()
             num_correct += (preds == y).sum()
             num_pixels += torch.numel(preds)
@@ -44,3 +45,18 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Dice score: {dice_score/len(loader)}")
     model.train()
 
+
+def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
+
+    model.eval()
+    for idx, (x, y) in enumerate(loader):
+        x = x.to(device=device)
+        with torch.no_grad():
+            preds = torch.sigmoid(model(x))
+            preds = (preds > 0.5).float()
+        torchvision.utils.save_image(
+            preds, f"{folder}/pred_{idx}.png"
+        )
+        torchvision.utils.save_image(y, f"{folder}{idx}.png")
+
+    model.train()
