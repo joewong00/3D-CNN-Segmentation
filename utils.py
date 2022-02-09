@@ -1,7 +1,9 @@
+from calendar import day_abbr
 import torch
 import torchvision
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from dataloader import MRIDataset
+
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -12,11 +14,23 @@ def load_checkpoint(checkpoint, model):
     model.load_state_dict(checkpoint["state_dict"])
 
 
-def get_loaders(batch_size, num_workers, pin_memory, train=True, shuffle=True, transform=True):
-    dataset = MRIDataset(train=train, transform=transform)
-    dataloader = DataLoader(dataset = dataset, batch_size=batch_size, shuffle= shuffle, num_workers=num_workers, pin_memory=pin_memory)
+def get_loaders(train=True, transform=True, **kwargs):
 
-    return dataloader
+    dataset = MRIDataset(train=train, transform=transform)
+
+    # train/val split
+    if train:
+        train_set, val_set = random_split(dataset, [int(len(dataset)*0.9),int(len(dataset)*0.1)])
+        
+        trainloader = DataLoader(dataset=train_set, **kwargs)
+        valloader = DataLoader(dataset=val_set, **kwargs)
+
+        return trainloader, valloader
+
+    # test
+    else:
+        testloader = DataLoader(dataset=dataset, **kwargs)
+        return testloader
 
 
 def check_accuracy(loader, model, device="cuda"):
@@ -43,14 +57,14 @@ def check_accuracy(loader, model, device="cuda"):
         f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}"
     )
     print(f"Dice score: {dice_score/len(loader)}")
-    model.train()
+    #model.train()
 
 
 def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
 
     model.eval()
     for idx, (x, y) in enumerate(loader):
-        x = x.to(device=device)
+        x = x.float().to(device=device)
         with torch.no_grad():
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()

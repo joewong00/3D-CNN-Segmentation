@@ -30,16 +30,16 @@ def train_net(loader, model, optimizer, loss, scaler):
         # forward
         with torch.cuda.amp.autocast():
             predictions = model(data)
-            loss = loss(predictions, targets)
+            cost = loss(predictions, targets)
 
         # backward
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
+        scaler.scale(cost).backward()
         scaler.step(optimizer)
         scaler.update()
 
         # update tqdm loop
-        loop.set_postfix(loss=loss.item())
+        loop.set_postfix(loss=cost.item())
 
 def main():
     model = ResidualUNet3D(in_channels=1, out_channels=1).to(DEVICE)
@@ -66,12 +66,12 @@ def main():
         save_checkpoint(checkpoint)
 
         # check accuracy
-        # check_accuracy(val_loader, model, device=DEVICE)
+        check_accuracy(val_loader, model, device=DEVICE)
 
         # print some examples to a folder
-        save_predictions_as_imgs(
-            val_loader, model, folder="saved_images/", device=DEVICE
-        )
+        # save_predictions_as_imgs(
+        #     val_loader, model, folder="saved_images/", device=DEVICE
+        # )
 
 if __name__ == "__main__":
     main()

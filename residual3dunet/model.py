@@ -27,34 +27,18 @@ class ResidualUNet3D(nn.Module):
 
 
     def forward(self, x):
-        print(x.shape)
 
         x1 = self.down1(x)
-        print(x1.shape)
-
         x2 = self.down2(x1)
-        print(x2.shape)
-
         x3 = self.down3(x2)
-        print(x3.shape)
-
         x4 = self.down4(x3)
-        print(x4.shape)
 
         x5 = self.down5(x4)
-        print(x5.shape)
 
         x = self.up1(x4, x5)
-        print(x.shape)
-
         x = self.up2(x3, x)
-        print(x.shape)
-
         x = self.up3(x2, x)
-        print(x.shape)
-
         x = self.up4(x1, x)
-        print(x.shape)
 
         y = self.final_conv(x)
 
@@ -62,5 +46,4 @@ class ResidualUNet3D(nn.Module):
         if self.testing:
             y = self.final_activation(y)
 
-        print(y.shape)
         return y
