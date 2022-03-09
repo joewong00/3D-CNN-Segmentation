@@ -39,7 +39,7 @@ class ResidualUNet3D(nn.Module):
         x = self.up2(x3, x)
         x = self.up3(x2, x)
         x = self.up4(x1, x)
-
+        
         y = self.final_conv(x)
 
         # apply final_activation (i.e. Sigmoid or Softmax) only during prediction. During training the network outputs

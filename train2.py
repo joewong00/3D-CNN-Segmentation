@@ -11,6 +11,7 @@ import torch
 import argparse
 import torch.nn.functional as F
 import torch.optim as optim
+import torchvision.transforms as T
 
 
 # Training
@@ -31,17 +32,24 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 break
 
 def test(model, device, test_loader, epoch):
+    costs = []
     model.eval()
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(test_loader):
             data, target = data.float().to(device), target.float().to(device)
             output = model(data)
             cost = F.binary_cross_entropy_with_logits(output, target)
+
+            costs.append(cost.item())
+
             print('Test Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(test_loader.dataset),
                 100. * batch_idx / len(test_loader), cost.item()))
+
+        avgcost = sum(costs)/len(costs)
+        print('Average test loss: {}\n'.format(avgcost))
     
-    return cost.item()
+    return avgcost
 
 
 
@@ -114,8 +122,13 @@ def main():
 
 
     # Data Loading
-    traindataset = MRIDataset(train=True, transform=True)
-    testdataset = MRIDataset(train=False, transform=True)
+    traindataset = MRIDataset(train=True, transform=T.Compose([T.ToTensor(),
+                                            T.RandomHorizontalFlip(),
+                                            T.RandomCrop((240,240), padding=50, pad_if_needed=True),
+                                           ]))
+
+    testdataset = MRIDataset(train=False, transform=T.ToTensor())
+                                        
     train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
 
     train_loader = DataLoader(dataset=train_set, **train_kwargs)
