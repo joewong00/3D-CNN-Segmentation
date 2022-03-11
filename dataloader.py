@@ -8,7 +8,7 @@ import numpy as np
 from elastic_transform import RandomElastic
 
 class MRIDataset(Dataset):
-    def __init__(self, train=True, transform=None):
+    def __init__(self, train=True, transform=None, elastic=False):
         super().__init__()
 
         self.h5ftrain = h5py.File('dataset/T2train.h5','r')
@@ -18,6 +18,7 @@ class MRIDataset(Dataset):
 
         self.train = train
         self.transform = transform
+        self.elastic = elastic
 
 
     def __getitem__(self, index):
@@ -36,6 +37,8 @@ class MRIDataset(Dataset):
         if self.transform is not None:
             X = np.squeeze(X)
             X = np.moveaxis(X, 0, 2)
+            
+            # Input (W * H * D)
             X = self.transform(X)
             X = torch.unsqueeze(X, 0)
             
@@ -46,6 +49,17 @@ class MRIDataset(Dataset):
             Y = np.moveaxis(Y, 0, 2)
             Y = self.transform(Y)
             Y = torch.unsqueeze(Y, 0)
+
+        # Random Elastic Transform
+        if self.elastic:
+            alpha = random.randint(0,2)
+            preprocess = RandomElastic(alpha=alpha, sigma=0.06)
+            X, Y = preprocess(X, Y) 
+
+        # convert numpy to torch tensor
+        if isinstance(X, np.ndarray):
+            X = torch.from_numpy(X)
+            Y = torch.from_numpy(Y)
         
         return X, Y
 

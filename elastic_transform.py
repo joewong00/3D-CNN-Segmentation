@@ -2,7 +2,7 @@ from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
 import numbers
 import numpy as np
-
+import torch
 class RandomElastic(object):
     """Random Elastic transformation by CV2 method on image by alpha, sigma parameter.
     Reference: https://github.com/gatsby2016/Augmentation-PyTorch-Transforms.git
@@ -74,6 +74,12 @@ class RandomElastic(object):
             return img
 
     def __call__(self, img, mask=None):
+
+        if torch.is_tensor(img):
+            img = img.numpy()
+
+        if torch.is_tensor(mask):
+            mask = mask.numpy()
 
         # 4D input (C * D * W * H)
         if len(img.shape) == 4:
