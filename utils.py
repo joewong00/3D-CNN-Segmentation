@@ -1,8 +1,9 @@
-from calendar import day_abbr
 import torch
 import torchvision
 from torch.utils.data import DataLoader, random_split
 from dataloader import MRIDataset
+import matplotlib.pyplot as plt
+import re
 
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
@@ -48,8 +49,8 @@ def iou(pred, target):
     pred = pred.int()
     target = target.int()
 
-    intersection = (pred & target).float().sum((1,2))
-    union = (pred | target).float().sum((1,2))   
+    intersection = (pred & target).float().sum()
+    union = (pred | target).float().sum()   
 
     iou = (intersection + 1e-6) / (union + 1e-6) 
 
@@ -77,7 +78,6 @@ def check_accuracy(loader, model, device="cuda"):
             
     print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
     print(f"Dice score: {dice_score/len(loader)}")
-    #model.train()
 
 
 def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
@@ -94,3 +94,44 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
         torchvision.utils.save_image(y, f"{folder}{idx}.png")
 
     model.train()
+
+
+def plotloss(outfile):
+    # Plotting loss (train and validation)
+
+    with open(outfile) as f:
+        fin = f.read()
+        testloss = re.findall(r"(test\sloss: )(\d.\d+)", fin)
+        trainloss = re.findall(r"(train\sloss: )(\d.\d+)", fin)
+
+    loss_test = []
+    loss_train = []
+
+    for i in range(len(testloss)):
+        loss_test.append(float(testloss[i][1]))
+        loss_train.append(float(trainloss[i][1]))
+
+    plt.plot(loss_train, label="Training loss")
+    plt.plot(loss_test, label="Val loss")
+    plt.legend()
+
+def plotaccuracy(outfile):
+    # Plotting accuracy (test accuracy and dice score)
+
+    with open(outfile) as f:
+        fin = f.read()
+        accuracy = re.findall(r"(acc )(\d+.\d+)", fin)
+        dice = re.findall(r"(score: )(\d.\d+)", fin)
+
+    test_accuracy = []
+    test_dice = []
+
+    for i in range(len(accuracy)):
+        test_accuracy.append(float(accuracy[i][1]))
+        test_dice.append(float(dice[i][1]))
+
+    test_accuracy = [i / 100 for i in test_accuracy]
+
+    plt.plot(test_dice, label="Dice Score")
+    plt.plot(test_accuracy, label="Accuracy")
+    plt.legend()

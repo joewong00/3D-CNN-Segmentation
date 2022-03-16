@@ -7,4 +7,4 @@
 module load nvidia/cuda-11.0
 module load nvidia/cudnn-v8.0.180-forcuda11.0
 
-python train2.py --batch-size 1 --log-interval 5 --epochs 20
+python train.py --batch-size 1 --log-interval 5 --epochs 50 --lr 2.5e-5

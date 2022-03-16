@@ -134,3 +134,7 @@ dmypy.json
 
 # VS code
 .vscode
+
+# Model and output file
+model/
+output/

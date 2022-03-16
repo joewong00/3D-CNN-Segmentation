@@ -5,6 +5,7 @@ from dataloader import MRIDataset
 from residual3dunet.model import ResidualUNet3D
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
+from torch.nn import DataParallel
 from utils import get_loaders, check_accuracy, load_checkpoint, save_checkpoint, save_predictions_as_imgs 
 
 import torch
@@ -16,6 +17,7 @@ import torchvision.transforms as T
 
 # Training
 def train(args, model, device, train_loader, optimizer, epoch):
+    costs = []
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.float().to(device), target.float().to(device)
@@ -24,12 +26,19 @@ def train(args, model, device, train_loader, optimizer, epoch):
         cost = F.binary_cross_entropy_with_logits(output, target)
         cost.backward()
         optimizer.step()
+
+        costs.append(cost.item())
+
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), cost.item()))
             if args.dry_run:
                 break
+
+    avgcost = sum(costs)/len(costs)
+
+    return avgcost
 
 def test(model, device, test_loader, epoch):
     costs = []
@@ -47,7 +56,6 @@ def test(model, device, test_loader, epoch):
                 100. * batch_idx / len(test_loader), cost.item()))
 
         avgcost = sum(costs)/len(costs)
-        print('Average test loss: {}\n'.format(avgcost))
     
     return avgcost
 
@@ -74,7 +82,7 @@ def test(model, device, test_loader, epoch):
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser = argparse.ArgumentParser(description='PyTorch 3D Segmentation')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
 
@@ -91,6 +99,9 @@ def main():
 
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
+
+    parser.add_argument('--multi-gpu', action='store_true', default=False,
+                        help='use multiple gpu for training')
 
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='quickly check a single pass')
@@ -125,7 +136,7 @@ def main():
     traindataset = MRIDataset(train=True, transform=T.Compose([T.ToTensor(),
                                             T.RandomHorizontalFlip(),
                                             T.RandomCrop((240,240), padding=50, pad_if_needed=True),
-                                           ]))
+                                           ]), elastic=True)
 
     testdataset = MRIDataset(train=False, transform=T.ToTensor())
                                         
@@ -138,6 +149,10 @@ def main():
     # Model
     model = ResidualUNet3D(in_channels=1, out_channels=1).to(device)
 
+    # If using multiple gpu
+    if args.multi_gpu:
+        model = DataParallel(model)
+
     # Hyperparameters
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=10, gamma=args.gamma)
@@ -147,9 +162,14 @@ def main():
 
     # Training process
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
+        trainloss = train(args, model, device, train_loader, optimizer, epoch)
         valloss = test(model, device, val_loader, epoch)
+
+        print('Average train loss: {}'.format(trainloss))
+        print('Average test loss: {}'.format(valloss))
         check_accuracy(test_loader, model, device=device)
+        print()
+        
         scheduler.step()
 
         if valloss < minvalidation and args.save_model:
