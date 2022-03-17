@@ -135,3 +135,8 @@ def plotaccuracy(outfile):
     plt.plot(test_dice, label="Dice Score")
     plt.plot(test_accuracy, label="Accuracy")
     plt.legend()
+
+
+
+def test_performance(outfile):
+    pass

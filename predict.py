@@ -1,51 +1,95 @@
+import argparse
 import matplotlib.pyplot as plt
 from dataloader import MRIDataset
 from residual3dunet.model import ResidualUNet3D
 from torch.utils.data import Dataset, DataLoader
+from torch.nn import DataParallel
 import numpy as np
 import torch
-#import cv2
+import torchvision.transforms as T
+from utils import dice_coefficient, iou
 import os
 
-def prepare_plot(origImage, origMask, predMask):
-	# initialize our figure
-	figure, ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
-	# plot the original image, its mask, and the predicted mask
-	ax[0].imshow(origImage)
-	ax[1].imshow(origMask)
-	ax[2].imshow(predMask)
-	# set the titles of the subplots
-	ax[0].set_title("Image")
-	ax[1].set_title("Original Mask")
-	ax[2].set_title("Predicted Mask")
-	# set the layout of the figure and display it
-	figure.tight_layout()
-	figure.show()
+def prepare_plot(features, labels, preds, depth):
+	# Visualize Single Image Data
+	f, axarr = plt.subplots(depth,3,figsize=(50,50))
 
-device = torch.device('cpu')
-model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
-model.load_state_dict(torch.load("model.pt", map_location=device))
-    
-dataset2 = MRIDataset(train=False, transform=True)
-test_loader = DataLoader(dataset = dataset2, batch_size=1, shuffle=True)
+	# Convert to cpu
+	features = features.cpu()
+	labels = labels.cpu()
+	preds = preds.cpu()
 
-for data, target in test_loader:
-    data, target = data.float().to(device), target.float().to(device)
-    output = model(data)
-    break
+	for i in range(depth):
+		axarr[i,0].imshow(features[0,0,i,:,:],cmap='gray')
+		axarr[i,1].imshow(preds[0,0,i,:,:],cmap='gray')
+		axarr[i,2].imshow(labels[0,0,i,:,:],cmap='gray')
+		plt.axis('off')
 
-preds = (output > 0.5).float()
+	plt.show()
+	plt.savefig('output.png')
 
-batch, channel, depth, width, height = preds.shape
-print(preds.shape)
-print("Prediction")
-for i in range(depth):
-    plt.imshow(preds[0,0,i,:,:],cmap='gray')
-    plt.axis('off')
-    plt.show()
+def predict(model, device, loader):
 
-print("Target")
-for i in range(depth):
-    plt.imshow(target[0,0,i,:,:],cmap='gray')
-    plt.axis('off')
-    plt.show()
+	model.eval()
+	# Disable grad
+	with torch.no_grad():
+
+		for batch_idx, (data, target) in enumerate(loader):
+			data, target = data.float().to(device), target.float().to(device)
+			output = model(data)
+
+			preds = (output > 0.5).float()
+			batch, channel, depth, width, height = preds.shape
+
+			print("Test set "+str(batch_idx + 1))
+			print("Dice score: "+str(dice_coefficient(preds, target).item()))
+			print("IOU: "+str(iou(preds, target).item()))
+			print()
+
+		prepare_plot(data, target, preds, depth)
+
+
+def main():
+	# Testing settings
+	parser = argparse.ArgumentParser(description='PyTorch 3D Segmentation')
+	parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+                        help='input batch size for testing (default: 64)')
+				
+	parser.add_argument('--model', type=int, default=1, metavar='M',
+                        help='model number (default: 1)')
+
+	parser.add_argument('--no-cuda', action='store_true', default=False,
+                        help='disables CUDA testing')
+
+	parser.add_argument('--multi-gpu', action='store_true', default=False,
+                        help='use multiple gpu for training')
+
+	args = parser.parse_args()
+	use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+	device = torch.device("cuda" if use_cuda else "cpu")
+
+	model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+
+	# If using multiple gpu
+	if args.multi_gpu:
+		model = DataParallel(model)
+
+	model.load_state_dict(torch.load(f"model{args.model}.pt", map_location=device))
+		
+	test_kwargs = {'batch_size': args.batch_size}
+
+	if use_cuda:
+		cuda_kwargs = {'num_workers': 1,
+                       'pin_memory': True,
+                       'shuffle': True}
+		test_kwargs.update(cuda_kwargs)
+
+	testdataset = MRIDataset(train=False, transform=T.ToTensor())
+	test_loader = DataLoader(dataset=testdataset, **test_kwargs)
+
+	predict(model, device, test_loader)
+
+
+if __name__ == '__main__':
+    main()
