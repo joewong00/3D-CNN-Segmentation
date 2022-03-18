@@ -155,7 +155,7 @@ def main():
 
     # Hyperparameters
     optimizer = Adam(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=10, gamma=args.gamma)
+    scheduler = StepLR(optimizer, step_size=30, gamma=args.gamma)
 
     # Validation Loss
     minvalidation = 10
@@ -167,7 +167,7 @@ def main():
 
         print('Average train loss: {}'.format(trainloss))
         print('Average test loss: {}'.format(valloss))
-        check_accuracy(test_loader, model, device=device)
+        # check_accuracy(test_loader, model, device=device)
         print()
         
         scheduler.step()

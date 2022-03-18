@@ -138,5 +138,19 @@ def plotaccuracy(outfile):
 
 
 
-def test_performance(outfile):
-    pass
+def testperformance(outfile):
+    # Return the average of the Dice score and Jaccard Index
+
+    with open(outfile) as f:
+        fin = f.read()
+        dice = re.findall(r"(score: )(\d.\d+)", fin)
+        iou_score = re.findall(r"(IOU: )(\d.\d+)", fin)
+
+    score = []
+    jaccard = []
+
+    for i in range(len(dice)):
+        score.append(float(dice[i][1]))
+        jaccard.append(float(iou_score[i][1]))
+
+    return sum(score)/len(score), sum(jaccard)/len(jaccard)

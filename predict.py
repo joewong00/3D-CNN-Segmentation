@@ -30,6 +30,10 @@ def prepare_plot(features, labels, preds, depth):
 
 def predict(model, device, loader):
 
+	num_correct = 0
+	num_pixels = 0
+	dice_score = 0
+	jaccard = 0
 	model.eval()
 	# Disable grad
 	with torch.no_grad():
@@ -39,6 +43,12 @@ def predict(model, device, loader):
 			output = model(data)
 
 			preds = (output > 0.5).float()
+
+			num_correct += (preds == target).sum()
+			num_pixels += torch.numel(preds)
+			dice_score += dice_coefficient(preds, target)
+			jaccard += iou(preds, target)
+
 			batch, channel, depth, width, height = preds.shape
 
 			print("Test set "+str(batch_idx + 1))
@@ -46,6 +56,11 @@ def predict(model, device, loader):
 			print("IOU: "+str(iou(preds, target).item()))
 			print()
 
+		# Average
+		print("Average:")
+		print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
+		print(f"Dice score: {dice_score/len(loader)}")
+		print(f"IOU: {jaccard/len(loader)}")
 		prepare_plot(data, target, preds, depth)
 
 
