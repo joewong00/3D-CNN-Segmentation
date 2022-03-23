@@ -7,7 +7,8 @@ from torch.nn import DataParallel
 import numpy as np
 import torch
 import torchvision.transforms as T
-from utils import dice_coefficient, iou
+from segmentation_statistics import SegmentationStatistics
+from utils import compute_average
 import os
 
 def prepare_plot(features, labels, preds, depth):
@@ -30,10 +31,8 @@ def prepare_plot(features, labels, preds, depth):
 
 def predict(model, device, loader):
 
-	num_correct = 0
-	num_pixels = 0
-	dice_score = 0
-	jaccard = 0
+
+	stats = []
 	model.eval()
 	# Disable grad
 	with torch.no_grad():
@@ -44,24 +43,44 @@ def predict(model, device, loader):
 
 			preds = (output > 0.5).float()
 
-			num_correct += (preds == target).sum()
-			num_pixels += torch.numel(preds)
-			dice_score += dice_coefficient(preds, target)
-			jaccard += iou(preds, target)
+			# Convert to numpy boolean
+			preds = preds.numpy()
+			target = target.numpy()	
+			preds = preds.astype(bool)
+			target = target.astype(bool)
 
-			batch, channel, depth, width, height = preds.shape
+			# batch, channel, depth, width, height = preds.shape
 
-			print("Test set "+str(batch_idx + 1))
-			print("Dice score: "+str(dice_coefficient(preds, target).item()))
-			print("IOU: "+str(iou(preds, target).item()))
-			print()
+			stat = SegmentationStatistics(preds[0,0,:,:,:], target[0,0,:,:,:], (3,2,1))
+			stats.append(stat)
+			
+
+			# num_correct += (preds == target).sum()
+			# num_pixels += torch.numel(preds)
+			# dice_score += dice_coefficient(preds, target)
+			# jaccard += iou(preds, target)
+
+			# print("Test set "+str(batch_idx + 1))
+			# print("Dice score: "+str(dice_coefficient(preds, target).item()))
+			# print("IOU: "+str(iou(preds, target).item()))
+			# print()
 
 		# Average
-		print("Average:")
-		print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
-		print(f"Dice score: {dice_score/len(loader)}")
-		print(f"IOU: {jaccard/len(loader)}")
-		prepare_plot(data, target, preds, depth)
+		print("All:")
+		print(compute_average(stats, dataframe=True))
+
+		# HC
+		print("\nHealthy Control:")
+		print(compute_average(stats,0,25,dataframe=True))
+
+		# CKD
+		print("\nChronic Kidney Disease:")
+		print(compute_average(stats,25,None,dataframe=True))
+
+		# print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
+		# print(f"Dice score: {dice_score/len(loader)}")
+		# print(f"IOU: {jaccard/len(loader)}")
+		# prepare_plot(data, target, preds, depth)
 
 
 def main():

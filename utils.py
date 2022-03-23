@@ -3,6 +3,7 @@ import torchvision
 from torch.utils.data import DataLoader, random_split
 from dataloader import MRIDataset
 import matplotlib.pyplot as plt
+import pandas as pd
 import re
 
 
@@ -137,20 +138,30 @@ def plotaccuracy(outfile):
     plt.legend()
 
 
+def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
+    # Compute the average 
 
-def testperformance(outfile):
-    # Return the average of the Dice score and Jaccard Index
+    assert endidx != 0, 'Index cannot end at 0'
 
-    with open(outfile) as f:
-        fin = f.read()
-        dice = re.findall(r"(score: )(\d.\d+)", fin)
-        iou_score = re.findall(r"(IOU: )(\d.\d+)", fin)
+    stats = {}
 
-    score = []
-    jaccard = []
+    metrics = ['Dice',
+        'Jaccard',
+        'Sensitivity',
+        'Specificity',
+        'Precision', 
+        'Accuracy', 
+        'Mean_Surface_Distance', 
+        'Hausdorff_Distance', 
+        'Volume_Difference']
 
-    for i in range(len(dice)):
-        score.append(float(dice[i][1]))
-        jaccard.append(float(iou_score[i][1]))
+    for key in metrics:
+        total = sum(stat[key] for stat in dicts[startidx:endidx])
+        length = len(dicts[startidx:endidx])
+        stats[key] = total/length
 
-    return sum(score)/len(score), sum(jaccard)/len(jaccard)
+    # convert into dataframe
+    if dataframe:
+        stats = pd.DataFrame(stats.items(), columns=['Metric','Score'])
+
+    return stats
