@@ -69,3 +69,4 @@ class SegmentationStatistics:
 
     def _volume_difference(self):
         return (np.sum(self.prediction) - np.sum(self.truth)) * np.prod(self.zoom) / 1000
+

@@ -11,6 +11,7 @@ from utils import get_loaders, check_accuracy, load_checkpoint, save_checkpoint,
 import torch
 import argparse
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 import torch.optim as optim
 import torchvision.transforms as T
 
@@ -58,27 +59,6 @@ def test(model, device, test_loader, epoch):
         avgcost = sum(costs)/len(costs)
     
     return avgcost
-
-
-
-# def test(model, device, test_loader):
-#     model.eval()
-#     test_loss = 0
-#     correct = 0
-#     with torch.no_grad():
-#         for data, target in test_loader:
-#             data, target = data.float().to(device), target.float().to(device)
-#             output = model(data)
-#             test_loss += F.binary_cross_entropy_with_logits(output, target, reduction='sum').item()  # sum up batch loss
-#             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-#             correct += pred.eq(target.view_as(pred)).sum().item()
-
-#     test_loss /= len(test_loader.dataset)
-
-#     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-#         test_loss, correct, len(test_loader.dataset),
-#         100. * correct / len(test_loader.dataset)))
-
 
 def main():
     # Training settings
@@ -159,6 +139,8 @@ def main():
 
     # Validation Loss
     minvalidation = 10
+    loss_train = []
+    loss_val = []
 
     # Training process
     for epoch in range(1, args.epochs + 1):
@@ -168,6 +150,8 @@ def main():
         print('Average train loss: {}'.format(trainloss))
         print('Average test loss: {}'.format(valloss))
         # check_accuracy(test_loader, model, device=device)
+        loss_train.append(trainloss)
+        loss_val.append(valloss)
         print()
         
         scheduler.step()
@@ -175,6 +159,14 @@ def main():
         if valloss < minvalidation and args.save_model:
             minvalidation = valloss
             torch.save(model.state_dict(), "model{}.pt".format(epoch))
+
+
+    plt.plot(loss_train, label="Training loss")
+    plt.plot(loss_val, label="Val loss")
+    plt.legend()
+    plt.imshow()
+    plt.show()
+    plt.savefig('Training Loss.png')
 
 
 if __name__ == '__main__':

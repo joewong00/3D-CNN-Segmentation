@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import numpy as np
 from torch.utils.data import DataLoader, random_split
 from dataloader import MRIDataset
 import matplotlib.pyplot as plt
@@ -46,12 +47,9 @@ def dice_coefficient(pred, target):
 
 
 def iou(pred, target):
-    
-    pred = pred.int()
-    target = target.int()
 
-    intersection = (pred & target).float().sum()
-    union = (pred | target).float().sum()   
+    intersection = (pred & target).sum()
+    union = (pred | target).sum()   
 
     iou = (intersection + 1e-6) / (union + 1e-6) 
 
@@ -165,3 +163,53 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
         stats = pd.DataFrame(stats.items(), columns=['Metric','Score'])
 
     return stats
+
+def prepare_plot(features, labels, preds, depth):
+	# Visualize Single Image Data
+	f, axarr = plt.subplots(depth,3,figsize=(50,50))
+
+	# Convert to cpu
+	features = features.cpu()
+	labels = labels.cpu()
+	preds = preds.cpu()
+
+	for i in range(depth):
+		axarr[i,0].imshow(features[0,0,i,:,:],cmap='gray')
+		axarr[i,1].imshow(preds[0,0,i,:,:],cmap='gray')
+		axarr[i,2].imshow(labels[0,0,i,:,:],cmap='gray')
+		plt.axis('off')
+
+	plt.show()
+	plt.savefig('output.png')
+
+
+def add_mask_colour(mask, colour="red"):
+
+    if torch.is_tensor(mask):
+        mask = mask.numpy()
+
+    # Make sure the input has shape (C * D * W * H)
+    if len(mask.shape) == 5:
+        mask = np.squeeze(mask, 0)
+
+    kernel = mask.astype(bool)
+    mask[kernel] = 255
+
+    if colour == "red":
+        mask = np.pad(mask, ((0,2),(0,0),(0,0),(0,0)))
+
+    elif colour == "green":
+        mask = np.pad(mask, ((1,1),(0,0),(0,0),(0,0)))
+
+    elif colour == "blue":
+        mask = np.pad(mask, ((2,0),(0,0),(0,0),(0,0)))
+
+    else:
+        raise Exception("Invalid colour, the colour must be either (red, green, blue).") 
+
+    # Make shape D * W * H * C
+    mask = np.moveaxis(mask, 0, 3)
+    mask = mask.astype(np.uint8)
+
+    return mask
+

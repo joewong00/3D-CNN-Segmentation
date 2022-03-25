@@ -5,7 +5,7 @@ class ResidualUNet3D(nn.Module):
     def __init__(self,
                 in_channels, 
                 out_channels,  
-                f_maps = [32,64,128,256,512],
+                f_maps = [64,128,256,512,1024],
                 testing=False,
                 **kwargs):
         super(ResidualUNet3D, self).__init__()

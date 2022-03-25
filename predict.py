@@ -8,29 +8,11 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 from segmentation_statistics import SegmentationStatistics
-from utils import compute_average
+from utils import compute_average, prepare_plot
 import os
 
-def prepare_plot(features, labels, preds, depth):
-	# Visualize Single Image Data
-	f, axarr = plt.subplots(depth,3,figsize=(50,50))
-
-	# Convert to cpu
-	features = features.cpu()
-	labels = labels.cpu()
-	preds = preds.cpu()
-
-	for i in range(depth):
-		axarr[i,0].imshow(features[0,0,i,:,:],cmap='gray')
-		axarr[i,1].imshow(preds[0,0,i,:,:],cmap='gray')
-		axarr[i,2].imshow(labels[0,0,i,:,:],cmap='gray')
-		plt.axis('off')
-
-	plt.show()
-	plt.savefig('output.png')
 
 def predict(model, device, loader):
-
 
 	stats = []
 	model.eval()
@@ -44,15 +26,15 @@ def predict(model, device, loader):
 			preds = (output > 0.5).float()
 
 			# Convert to numpy boolean
-			preds = preds.numpy()
-			target = target.numpy()	
+			preds = preds.cpu().numpy()
+			target = target.cpu().numpy()	
 			preds = preds.astype(bool)
 			target = target.astype(bool)
 
 			# batch, channel, depth, width, height = preds.shape
 
 			stat = SegmentationStatistics(preds[0,0,:,:,:], target[0,0,:,:,:], (3,2,1))
-			stats.append(stat)
+			stats.append(stat.to_dict())
 			
 
 			# num_correct += (preds == target).sum()
