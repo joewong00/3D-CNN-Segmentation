@@ -1,34 +1,42 @@
+from torch.utils.data import DataLoader, random_split
+from dataloader import MRIDataset
+
 import torch
 import torchvision
 import numpy as np
-from torch.utils.data import DataLoader, random_split
-from dataloader import MRIDataset
 import matplotlib.pyplot as plt
 import pandas as pd
+import nibabel as nib
 import re
-
+import h5py
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
+    # Save checkpoint of model
+
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
+
 def load_checkpoint(checkpoint, model):
+    # Load checkpoint of model
+
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
 
 
 def get_loaders(train=True, transform=True, **kwargs):
+    # Get the train dataset or test dataset loader
 
     dataset = MRIDataset(train=train, transform=transform)
 
     # train/val split
     if train:
-        train_set, val_set = random_split(dataset, [int(len(dataset)*0.9),int(len(dataset)*0.1)])
+        # train_set, val_set = random_split(dataset, [int(len(dataset)*0.9),int(len(dataset)*0.1)])
         
-        trainloader = DataLoader(dataset=train_set, **kwargs)
-        valloader = DataLoader(dataset=val_set, **kwargs)
+        trainloader = DataLoader(dataset=dataset, **kwargs)
+        # valloader = DataLoader(dataset=val_set, **kwargs)
 
-        return trainloader, valloader
+        return trainloader
 
     # test
     else:
@@ -36,25 +44,9 @@ def get_loaders(train=True, transform=True, **kwargs):
         return testloader
 
 
-def dice_coefficient(pred, target):
+def dice_coefficient(prediction, truth):
 
-    dice_score = 0
-    dice_score += (2 * (pred * target).sum()) / (
-                (pred + target).sum() + 1e-8
-            )
-
-    return dice_score
-
-
-def iou(pred, target):
-
-    intersection = (pred & target).sum()
-    union = (pred | target).sum()   
-
-    iou = (intersection + 1e-6) / (union + 1e-6) 
-
-    return iou.mean()
-    
+   return np.sum(prediction[truth==1]) * 2.0 / (np.sum(prediction) + np.sum(truth))
 
 
 def check_accuracy(loader, model, device="cuda"):
@@ -77,26 +69,11 @@ def check_accuracy(loader, model, device="cuda"):
             
     print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
     print(f"Dice score: {dice_score/len(loader)}")
-
-
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
-
-    model.eval()
-    for idx, (x, y) in enumerate(loader):
-        x = x.float().to(device=device)
-        with torch.no_grad():
-            preds = torch.sigmoid(model(x))
-            preds = (preds > 0.5).float()
-        torchvision.utils.save_image(
-            preds, f"{folder}/pred_{idx}.png"
-        )
-        torchvision.utils.save_image(y, f"{folder}{idx}.png")
-
-    model.train()
+    return dice_score/len(loader)
 
 
 def plotloss(outfile):
-    # Plotting loss (train and validation)
+    # Plotting loss (train and validation) based on the log file
 
     with open(outfile) as f:
         fin = f.read()
@@ -114,8 +91,9 @@ def plotloss(outfile):
     plt.plot(loss_test, label="Val loss")
     plt.legend()
 
+
 def plotaccuracy(outfile):
-    # Plotting accuracy (test accuracy and dice score)
+    # Plotting accuracy (test accuracy and dice score) based on the log file
 
     with open(outfile) as f:
         fin = f.read()
@@ -137,7 +115,7 @@ def plotaccuracy(outfile):
 
 
 def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
-    # Compute the average 
+    # Compute performance average from the test set
 
     assert endidx != 0, 'Index cannot end at 0'
 
@@ -164,23 +142,23 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
 
     return stats
 
-def prepare_plot(features, labels, preds, depth):
+
+def visualize2d(data, depth):
 	# Visualize Single Image Data
-	f, axarr = plt.subplots(depth,3,figsize=(50,50))
+
+    assert depth in data.shape, 'The input "depth" is not compatible with the data'
+    assert data.shape == 4, 'Data must contain 4 dimensions: (CxDxWxH)'
+    assert isinstance(data, np.ndarray) or torch.is_tensor(data), 'Data must be either numpy or torch tensors'
 
 	# Convert to cpu
-	features = features.cpu()
-	labels = labels.cpu()
-	preds = preds.cpu()
+    data = data.cpu()
 
-	for i in range(depth):
-		axarr[i,0].imshow(features[0,0,i,:,:],cmap='gray')
-		axarr[i,1].imshow(preds[0,0,i,:,:],cmap='gray')
-		axarr[i,2].imshow(labels[0,0,i,:,:],cmap='gray')
-		plt.axis('off')
+    for i in range(depth):
+        plt.imshow(data[0,0,i,:,:],cmap='gray')
+        plt.axis('off')
 
-	plt.show()
-	plt.savefig('output.png')
+    plt.show()
+    plt.savefig('data.png')
 
 
 def add_mask_colour(mask, colour="red"):
@@ -213,3 +191,65 @@ def add_mask_colour(mask, colour="red"):
 
     return mask
 
+
+def read_data_as_numpy(image_path):
+    # Read data and convert to numpy array
+
+    image_obj = nib.load(image_path)
+
+    # Extract data as numpy array
+    image_data = image_obj.get_fdata()
+
+    return image_data
+
+
+def read_data_from_h5(file_path, index, tensor=True):
+    # Read data from h5 file and convert to numpy/torch tensor
+
+    h5f = h5py.File(file_path,'r')
+    data = h5f[f'T2data_{index}'][:]
+    
+    if tensor:
+        data = torch.from_numpy(data)
+
+    return data
+
+
+def plot_sidebyside(feature, prediction, groundtruth, depth):
+    # Plotting the original data, prediction and groundtruth in 3 columns (each row represents the depth)
+
+    f, axarr = plt.subplots(14,3,figsize=(100,100))
+
+    if torch.is_tensor(prediction):
+        prediction = prediction.numpy()
+
+    # Make sure the input has shape (C * D * W * H)
+    if len(prediction.shape) > 3:
+        prediction = np.squeeze(prediction)
+
+    for i in range(depth):
+        axarr[i,0].imshow(feature[0,0,i,:,:],cmap='gray')
+        axarr[i,1].imshow(prediction[0,0,i,:,:],cmap='gray')
+        axarr[i,2].imshow(groundtruth[0,0,i,:,:],cmap='gray')
+        plt.axis('off')
+
+
+def plot_train_loss(loss_train, loss_val):
+    plt.plot(loss_train, label="Train loss")
+    plt.plot(loss_val, label="Val loss")
+    plt.legend()
+    plt.show()
+    plt.savefig('Training Loss.png')
+
+
+def plot_train_accuracy(acc_train, acc_val):
+    plt.plot(acc_train, label="Train loss")
+    plt.plot(acc_val, label="Val loss")
+    plt.legend()
+    plt.show()
+    plt.savefig('Training Loss.png')
+
+
+def number_of_features_per_level(init_channel_number, num_levels):
+    # Return a list of features
+    return [init_channel_number * 2 ** k for k in range(num_levels)]

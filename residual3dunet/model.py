@@ -1,53 +1,61 @@
 import torch.nn as nn
-from residual3dunet.buildingblocks import Encode, Decode
+import numpy as np
+from residual3dunet.buildingblocks import DoubleConv, ExtResNetBlock, create_decoders, create_encoders
+from utils import number_of_features_per_level
 
+# Source: https://github.com/wolny/pytorch-3dunet
 class ResidualUNet3D(nn.Module):
     def __init__(self,
                 in_channels, 
                 out_channels,  
                 f_maps = [64,128,256,512,1024],
+                num_levels = 5,
                 testing=False,
+                conv_kernel_size=3, 
+                pool_kernel_size=(1,2,2), 
+                num_groups=8,
+                conv_padding=1,
                 **kwargs):
         super(ResidualUNet3D, self).__init__()
 
+        if isinstance(f_maps, int):
+            f_maps = number_of_features_per_level(f_maps, num_levels=num_levels)
+
+        assert isinstance(f_maps, list) or isinstance(f_maps, tuple)
+        assert len(f_maps) > 1, "Required at least 2 levels in the U-Net"
+
         self.testing = testing
+
+        self.encoders = create_encoders(in_channels,f_maps, basic_module=ExtResNetBlock, 
+                                        conv_kernel_size=conv_kernel_size, 
+                                        conv_padding=conv_padding, 
+                                        num_groups=num_groups, 
+                                        pool_kernel_size=pool_kernel_size)
+
+        self.decoders = create_decoders(f_maps, basic_module=ExtResNetBlock,
+                                        conv_kernel_size=conv_kernel_size,
+                                        conv_padding=conv_padding,
+                                        num_groups=num_groups)
+
         self.final_activation = nn.Sigmoid()
-
-        self.down1 = Encode(in_channels, f_maps[0], pooling=False)
-        self.down2 = Encode(f_maps[0], f_maps[1])
-        self.down3 = Encode(f_maps[1], f_maps[2])
-        self.down4 = Encode(f_maps[2], f_maps[3])
-        self.down5 = Encode(f_maps[3], f_maps[4])
-
-        self.up1 = Decode(f_maps[4], f_maps[3])
-        self.up2 = Decode(f_maps[3], f_maps[2])
-        self.up3 = Decode(f_maps[2], f_maps[1])
-        self.up4 = Decode(f_maps[1], f_maps[0])
         self.final_conv = nn.Conv3d(f_maps[0], out_channels, 1)
 
 
     def forward(self, x):
 
-        x1 = self.down1(x)
-        print(x1.shape)
-        x2 = self.down2(x1)
-        print(x2.shape)
-        x3 = self.down3(x2)
-        print(x3.shape)
-        x4 = self.down4(x3)
-        print(x4.shape)
+        print(x.shape)
+        encoder_features = []
+        for encoder in self.encoders:
+            x = encoder(x)
+            print(x.shape)
+            encoder_features.insert(0,x)
 
-        x5 = self.down5(x4)
-        print(x5.shape)
+        encoder_features = encoder_features[1:]
 
-        x = self.up1(x4, x5)
-        print(x.shape)
-        x = self.up2(x3, x)
-        print(x.shape)
-        x = self.up3(x2, x)
-        print(x.shape)
-        x = self.up4(x1, x)
-        print(x.shape)
+        for decoder, encoder_features in zip(self.decoders, encoder_features):
+            x = decoder(encoder_features, x)
+            print(x.shape)
+
         y = self.final_conv(x)
         print(y.shape)
 
@@ -56,3 +64,67 @@ class ResidualUNet3D(nn.Module):
             y = self.final_activation(y)
 
         return y
+
+
+class UNet3D(nn.Module):
+    def __init__(self,
+                in_channels, 
+                out_channels,  
+                f_maps = [64,128,256,512],
+                num_levels = 4,
+                testing=False,
+                conv_kernel_size=3, 
+                pool_kernel_size=(1,2,2), 
+                num_groups=8,
+                conv_padding=1,
+                **kwargs):
+        super(UNet3D, self).__init__()
+
+        if isinstance(f_maps, int):
+            f_maps = number_of_features_per_level(f_maps, num_levels=num_levels)
+
+        assert isinstance(f_maps, list) or isinstance(f_maps, tuple)
+        assert len(f_maps) > 1, "Required at least 2 levels in the U-Net"
+
+        self.testing = testing
+
+        self.encoders = create_encoders(in_channels,f_maps, basic_module=DoubleConv, 
+                                        conv_kernel_size=conv_kernel_size, 
+                                        conv_padding=conv_padding, 
+                                        num_groups=num_groups, 
+                                        pool_kernel_size=pool_kernel_size)
+
+        self.decoders = create_decoders(f_maps, basic_module=DoubleConv,
+                                        conv_kernel_size=conv_kernel_size,
+                                        conv_padding=conv_padding,
+                                        num_groups=num_groups)
+
+        self.final_activation = nn.Sigmoid()
+        self.final_conv = nn.Conv3d(f_maps[0], out_channels, 1)
+
+
+    def forward(self, x):
+
+        print(x.shape)
+        encoders_features = []
+        for encoder in self.encoders:
+            x = encoder(x)
+            print(x.shape)
+            encoders_features.insert(0,x)
+
+        encoders_features = encoders_features[1:]
+
+        for decoder, encoder_features in zip(self.decoders, encoders_features):
+            x = decoder(encoder_features, x)
+            print(x.shape)
+
+        y = self.final_conv(x)
+        print(y.shape)
+
+        # apply final_activation (i.e. Sigmoid or Softmax) only during prediction. During training the network outputs
+        if self.testing:
+            y = self.final_activation(y)
+
+        return y
+
+

@@ -35,17 +35,6 @@ def predict(model, device, loader):
 
 			stat = SegmentationStatistics(preds[0,0,:,:,:], target[0,0,:,:,:], (3,2,1))
 			stats.append(stat.to_dict())
-			
-
-			# num_correct += (preds == target).sum()
-			# num_pixels += torch.numel(preds)
-			# dice_score += dice_coefficient(preds, target)
-			# jaccard += iou(preds, target)
-
-			# print("Test set "+str(batch_idx + 1))
-			# print("Dice score: "+str(dice_coefficient(preds, target).item()))
-			# print("IOU: "+str(iou(preds, target).item()))
-			# print()
 
 		# Average
 		print("All:")
@@ -58,11 +47,6 @@ def predict(model, device, loader):
 		# CKD
 		print("\nChronic Kidney Disease:")
 		print(compute_average(stats,25,None,dataframe=True))
-
-		# print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
-		# print(f"Dice score: {dice_score/len(loader)}")
-		# print(f"IOU: {jaccard/len(loader)}")
-		# prepare_plot(data, target, preds, depth)
 
 
 def main():
@@ -77,9 +61,6 @@ def main():
 	parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA testing')
 
-	parser.add_argument('--multi-gpu', action='store_true', default=False,
-                        help='use multiple gpu for training')
-
 	args = parser.parse_args()
 	use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -88,7 +69,7 @@ def main():
 	model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
 	# If using multiple gpu
-	if args.multi_gpu:
+	if torch.cuda.device_count() > 1 and use_cuda:
 		model = DataParallel(model)
 
 	model.load_state_dict(torch.load(f"model{args.model}.pt", map_location=device))

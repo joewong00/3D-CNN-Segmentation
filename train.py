@@ -1,12 +1,11 @@
-from __future__ import print_function
-from webbrowser import get
 from torch.optim import Adam
 from dataloader import MRIDataset
-from residual3dunet.model import ResidualUNet3D
+from residual3dunet.model import ResidualUNet3D, UNet3D
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
-from utils import get_loaders, check_accuracy, load_checkpoint, save_checkpoint, save_predictions_as_imgs 
+from utils import plot_train_loss, plot_train_accuracy, check_accuracy
+from lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
 
 import torch
 import argparse
@@ -17,14 +16,15 @@ import torchvision.transforms as T
 
 
 # Training
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, loss):
     costs = []
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.float().to(device), target.float().to(device)
         optimizer.zero_grad()
         output = model(data)
-        cost = F.binary_cross_entropy_with_logits(output, target)
+        # cost = F.binary_cross_entropy_with_logits(output, target)
+        cost = loss(output, target)
         cost.backward()
         optimizer.step()
 
@@ -41,14 +41,16 @@ def train(args, model, device, train_loader, optimizer, epoch):
 
     return avgcost
 
-def test(model, device, test_loader, epoch):
+def test(model, device, test_loader, epoch, loss):
     costs = []
     model.eval()
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(test_loader):
             data, target = data.float().to(device), target.float().to(device)
             output = model(data)
-            cost = F.binary_cross_entropy_with_logits(output, target)
+
+            cost = loss(output, target)
+            # cost = F.binary_cross_entropy_with_logits(output, target)
 
             costs.append(cost.item())
 
@@ -79,9 +81,6 @@ def main():
 
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-
-    parser.add_argument('--multi-gpu', action='store_true', default=False,
-                        help='use multiple gpu for training')
 
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='quickly check a single pass')
@@ -120,53 +119,50 @@ def main():
 
     testdataset = MRIDataset(train=False, transform=T.ToTensor())
                                         
-    train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
+    # train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
 
-    train_loader = DataLoader(dataset=train_set, **train_kwargs)
-    val_loader = DataLoader(dataset=val_set, **train_kwargs)
+    train_loader = DataLoader(dataset=traindataset, **train_kwargs)
+    # val_loader = DataLoader(dataset=val_set, **train_kwargs)
     test_loader = DataLoader(dataset=testdataset, **test_kwargs)
 
     # Model
     model = ResidualUNet3D(in_channels=1, out_channels=1).to(device)
 
     # If using multiple gpu
-    if args.multi_gpu:
+    if torch.cuda.device_count() > 1 and use_cuda:
         model = DataParallel(model)
 
     # Hyperparameters
     optimizer = Adam(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=30, gamma=args.gamma)
+    scheduler = StepLR(optimizer, step_size=50, gamma=args.gamma)
+    loss = DiceBCELoss()
 
     # Validation Loss
     minvalidation = 10
     loss_train = []
     loss_val = []
+    min_dice = 1
 
     # Training process
     for epoch in range(1, args.epochs + 1):
-        trainloss = train(args, model, device, train_loader, optimizer, epoch)
-        valloss = test(model, device, val_loader, epoch)
+        trainloss = train(args, model, device, train_loader, optimizer, epoch, loss)
+        # valloss = test(model, device, val_loader, epoch, loss)
 
         print('Average train loss: {}'.format(trainloss))
-        print('Average test loss: {}'.format(valloss))
-        # check_accuracy(test_loader, model, device=device)
+        # print('Average test loss: {}'.format(valloss))
+        dice = check_accuracy(test_loader, model, device=device)
         loss_train.append(trainloss)
-        loss_val.append(valloss)
+        # loss_val.append(valloss)
         print()
         
         scheduler.step()
 
-        if valloss < minvalidation and args.save_model:
-            minvalidation = valloss
+        if dice < min_dice and args.save_model:
+            min_dice = min_dice
             torch.save(model.state_dict(), "model{}.pt".format(epoch))
 
 
-    plt.plot(loss_train, label="Training loss")
-    plt.plot(loss_val, label="Val loss")
-    plt.legend()
-    plt.imshow()
-    plt.show()
-    plt.savefig('Training Loss.png')
+    # plot_train_loss(loss_train, loss_val)
 
 
 if __name__ == '__main__':
