@@ -1,92 +1,115 @@
 import argparse
-import matplotlib.pyplot as plt
-from dataloader import MRIDataset
-from residual3dunet.model import ResidualUNet3D
-from torch.utils.data import Dataset, DataLoader
-from torch.nn import DataParallel
 import numpy as np
 import torch
 import torchvision.transforms as T
-from segmentation_statistics import SegmentationStatistics
-from utils import compute_average, prepare_plot
+import logging
 import os
+import nibabel as nib
+
+from residual3dunet.model import UNet3D
+from residual3dunet.res3dunetmodel import ResidualUNet3D
+from torch.nn import DataParallel
+from segmentation_statistics import SegmentationStatistics
+from utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped
 
 
-def predict(model, device, loader):
+def predict(model,input,threshold,device):
 
-	stats = []
 	model.eval()
+
+	input = to_depth_first(input)
+
+	if len(input.shape) == 3:
+		input = add_channel(input)
+
+	# Add batch dimension
+	input = input.unsqueeze(0)
+	input = input.to(device=device, dtype=torch.float32)
+
 	# Disable grad
 	with torch.no_grad():
 
-		for batch_idx, (data, target) in enumerate(loader):
-			data, target = data.float().to(device), target.float().to(device)
-			output = model(data)
+		output = model(input)
+		preds = (output > threshold).float()
 
-			preds = (output > 0.5).float()
+		# Squeeze channel and batch dimension
+		preds = torch.squeeze(preds)
 
-			# Convert to numpy boolean
-			preds = preds.cpu().numpy()
-			target = target.cpu().numpy()	
-			preds = preds.astype(bool)
-			target = target.astype(bool)
+		# Convert to numpy
+		preds = preds.cpu().numpy()
 
-			# batch, channel, depth, width, height = preds.shape
+	preds = to_depth_last(preds)
 
-			stat = SegmentationStatistics(preds[0,0,:,:,:], target[0,0,:,:,:], (3,2,1))
-			stats.append(stat.to_dict())
+	return preds
 
-		# Average
-		print("All:")
-		print(compute_average(stats, dataframe=True))
+def get_args():
+	# Test settings
+	parser = argparse.ArgumentParser(description='Predict masks from input images')
+	parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
+	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the file in which the model is stored')
+	parser.add_argument('--input', '-i', metavar='INPUT', help='Path to the image file (format: nii.gz)', required=True)
+	parser.add_argument('--mask', '-l', metavar='INPUT', default=None, help='Path to the ground truth of the input image (if_available)')
+	parser.add_argument('--viz', '-v', action='store_true', help='Visualize the output')
+	parser.add_argument('--no-save', '-n', action='store_true', help='Do not save the output masks')
+	parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA testing')
+	parser.add_argument('--mask-threshold', '-t', type=float, default=0.5, help='Minimum probability value to consider a mask pixel white')
 
-		# HC
-		print("\nHealthy Control:")
-		print(compute_average(stats,0,25,dataframe=True))
-
-		# CKD
-		print("\nChronic Kidney Disease:")
-		print(compute_average(stats,25,None,dataframe=True))
-
+	return parser.parse_args()
 
 def main():
-	# Testing settings
-	parser = argparse.ArgumentParser(description='PyTorch 3D Segmentation')
-	parser.add_argument('--batch-size', type=int, default=1, metavar='N',
-                        help='input batch size for testing (default: 64)')
-				
-	parser.add_argument('--model', type=int, default=1, metavar='M',
-                        help='model number (default: 1)')
-
-	parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA testing')
-
-	args = parser.parse_args()
+	
+	args = get_args()
+	filename = os.path.basename(args.input)
 	use_cuda = not args.no_cuda and torch.cuda.is_available()
-
 	device = torch.device("cuda" if use_cuda else "cpu")
 
-	model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+	assert args.network.casefold() == "unet3d" or args.network.casefold() == "residualunet3d", 'Network must be either (Unet3D / ResidualUnet3D)'
+
+	# Specify network
+	if args.network.casefold() == "unet3d":
+		model = UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+
+	else:
+		model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+
+	logging.info(f'Loading model {args.model}')
+	logging.info(f'Using device {device}')
 
 	# If using multiple gpu
 	if torch.cuda.device_count() > 1 and use_cuda:
 		model = DataParallel(model)
 
-	model.load_state_dict(torch.load(f"model{args.model}.pt", map_location=device))
-		
-	test_kwargs = {'batch_size': args.batch_size}
+	load_checkpoint(args.model, model ,device=device)
+	# model.load_state_dict(torch.load(args.model, map_location=device))
 
-	if use_cuda:
-		cuda_kwargs = {'num_workers': 1,
-                       'pin_memory': True,
-                       'shuffle': True}
-		test_kwargs.update(cuda_kwargs)
+	logging.info('Model loaded!')
+	logging.info(f'\nPredicting image {filename} ...')
 
-	testdataset = MRIDataset(train=False, transform=T.ToTensor())
-	test_loader = DataLoader(dataset=testdataset, **test_kwargs)
+	data = read_data_as_numpy(args.input)
 
-	predict(model, device, test_loader)
+	prediction = predict(model, data, args.mask_threshold, device)
 
+	if not args.no_save:
+		# Save prediction mask as nii.gz
+		image_data = numpy_to_nii(prediction)
+		nib.save(image_data,f"Mask_{filename}")
+
+		logging.info(f'\nMask saved to Mask_{filename}')
+
+	if args.viz:
+		visualize2d(prediction)
+
+	# Evaluation statistics
+	if args.mask is not None:
+		target = read_data_as_numpy(args.mask)
+
+		plot_overlapped(data, prediction, target)
+
+		prediction = prediction.astype(bool)
+		target = target.astype(bool)
+
+		stat = SegmentationStatistics(prediction, target, (3,2,1))
+		stat.print_table()
 
 if __name__ == '__main__':
     main()

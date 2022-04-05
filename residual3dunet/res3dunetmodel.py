@@ -1,5 +1,5 @@
 import torch.nn as nn
-from residual3dunet.buildingblocks import Encode, Decode
+from residual3dunet.buildingblockorig import Encode, Decode
 
 class ResidualUNet3D(nn.Module):
     def __init__(self,

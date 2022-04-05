@@ -18,6 +18,9 @@ class ResidualUNet3D(nn.Module):
                 **kwargs):
         super(ResidualUNet3D, self).__init__()
 
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
         if isinstance(f_maps, int):
             f_maps = number_of_features_per_level(f_maps, num_levels=num_levels)
 
@@ -43,21 +46,17 @@ class ResidualUNet3D(nn.Module):
 
     def forward(self, x):
 
-        print(x.shape)
         encoder_features = []
         for encoder in self.encoders:
             x = encoder(x)
-            print(x.shape)
             encoder_features.insert(0,x)
 
         encoder_features = encoder_features[1:]
 
         for decoder, encoder_features in zip(self.decoders, encoder_features):
             x = decoder(encoder_features, x)
-            print(x.shape)
 
         y = self.final_conv(x)
-        print(y.shape)
 
         # apply final_activation (i.e. Sigmoid or Softmax) only during prediction. During training the network outputs
         if self.testing:
@@ -79,6 +78,9 @@ class UNet3D(nn.Module):
                 conv_padding=1,
                 **kwargs):
         super(UNet3D, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
         if isinstance(f_maps, int):
             f_maps = number_of_features_per_level(f_maps, num_levels=num_levels)
@@ -105,21 +107,17 @@ class UNet3D(nn.Module):
 
     def forward(self, x):
 
-        print(x.shape)
         encoders_features = []
         for encoder in self.encoders:
             x = encoder(x)
-            print(x.shape)
             encoders_features.insert(0,x)
 
         encoders_features = encoders_features[1:]
 
         for decoder, encoder_features in zip(self.decoders, encoders_features):
             x = decoder(encoder_features, x)
-            print(x.shape)
 
         y = self.final_conv(x)
-        print(y.shape)
 
         # apply final_activation (i.e. Sigmoid or Softmax) only during prediction. During training the network outputs
         if self.testing:
