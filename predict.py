@@ -10,7 +10,7 @@ from residual3dunet.model import UNet3D
 from residual3dunet.res3dunetmodel import ResidualUNet3D
 from torch.nn import DataParallel
 from segmentation_statistics import SegmentationStatistics
-from utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped
+from utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped, preprocess
 
 
 def predict(model,input,threshold,device):
@@ -101,7 +101,7 @@ def main():
 
 	# Evaluation statistics
 	if args.mask is not None:
-		target = read_data_as_numpy(args.mask)
+		target = preprocess(read_data_as_numpy(args.mask),rotate=True, to_tensor=False)
 
 		plot_overlapped(data, prediction, target)
 

@@ -5,7 +5,7 @@ from residual3dunet.model import ResidualUNet3D, UNet3D
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
-from utils import load_checkpoint, plot_train_loss, check_accuracy, get_loaders, save_model
+from utils import load_checkpoint, plot_train_loss, save_model
 from lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
 
 import os
@@ -134,29 +134,20 @@ def main():
 
     # Data Loading
     transformation = T.Compose([T.ToTensor(),
+                    T.Normalize(),
                     T.RandomHorizontalFlip(),
+                    T.RandomRotation(90),
                     T.RandomCrop((240,240), padding=50, pad_if_needed=True)])
- 
-    train_loader, val_loader = get_loaders(train=True, transform=transformation, elastic_transform=True, split=True **train_kwargs)
 
-    test_loader = get_loaders(train=False, transform=T.ToTensor(), **test_kwargs)
-
-    # traindataset = MRIDataset(train=True, transform=T.Compose([T.ToTensor(),
-    #                                         T.RandomHorizontalFlip(),
-    #                                         T.RandomCrop((240,240), padding=50, pad_if_needed=True),
-    #                                        ]), elastic=True)
-
+    traindataset = MRIDataset(train=True, transform=transformation, elastic=True)
     # testdataset = MRIDataset(train=False, transform=T.ToTensor())
-                                        
-    # # train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
 
-    # train_loader = DataLoader(dataset=traindataset, **train_kwargs)
-    # # val_loader = DataLoader(dataset=val_set, **train_kwargs)
+    train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
+
+    train_loader = DataLoader(dataset=train_set, **train_kwargs)
+    val_loader = DataLoader(dataset=val_set, **train_kwargs)
     # test_loader = DataLoader(dataset=testdataset, **test_kwargs)
-
-    # # Model
-    # model = ResidualUNet3D(in_channels=1, out_channels=1).to(device)
-
+ 
     # Hyperparameters
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=50, gamma=args.gamma)

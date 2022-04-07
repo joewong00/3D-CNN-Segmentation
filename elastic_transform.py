@@ -1,8 +1,12 @@
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
+from utils import convert_to_numpy, add_channel, to_depth_last
+
+import random
 import numbers
 import numpy as np
 import torch
+import torchvision.transforms as T
 class RandomElastic(object):
     """Random Elastic transformation by CV2 method on image by alpha, sigma parameter.
     Reference: https://github.com/gatsby2016/Augmentation-PyTorch-Transforms.git
@@ -27,16 +31,18 @@ class RandomElastic(object):
     preprocess = RandomElastic(alpha=2, sigma=0.06)
     transformed_data, transformed_target = preprocess(data, target) 
     """
-    def __init__(self, alpha, sigma):
+    def __init__(self, alpha, sigma, to_tensor=True):
         assert isinstance(alpha, numbers.Number) and isinstance(sigma, numbers.Number), \
             "alpha and sigma should be a single number."
         assert 0.05 <= sigma <= 0.1, \
             "In pathological image, sigma should be in (0.05,0.1)"
+
         self.alpha = alpha
         self.sigma = sigma
+        self.to_tensor = to_tensor
 
     @staticmethod
-    def RandomElasticCV2(img, alpha, sigma, mask=None):
+    def RandomElasticCV2(img, alpha, sigma, mask=None, to_tensor=True):
         alpha = img.shape[1] * alpha
         sigma = img.shape[1] * sigma
         if mask is not None:
@@ -67,6 +73,9 @@ class RandomElastic(object):
 
         # Move channel to dimension1
         img = np.moveaxis(img,3,0)
+
+        if to_tensor:
+            img = torch.from_numpy(img)
         
         if mask is not None:
             return img[:1, ...], img[1:,...]
@@ -75,25 +84,64 @@ class RandomElastic(object):
 
     def __call__(self, img, mask=None):
 
-        if torch.is_tensor(img):
-            img = img.numpy()
+        img = convert_to_numpy(img)
+        img = to_depth_last(img)
+        img = add_channel(img,3)
 
-        if torch.is_tensor(mask):
-            mask = mask.numpy()
+        if mask is not None:
+            mask = convert_to_numpy(mask)
+            mask = to_depth_last(mask)
+            mask = add_channel(mask,3)
 
-        # 4D input (C * D * W * H)
-        if len(img.shape) == 4:
-            img = np.moveaxis(img,1,3)
-            img = np.moveaxis(img,0,3)
-
-        if len(mask.shape) == 4:
-            mask = np.moveaxis(mask,1,3)
-            mask = np.moveaxis(mask,0,3)
-
-        return self.RandomElasticCV2(np.array(img), self.alpha, self.sigma, mask)
+        return self.RandomElasticCV2(np.array(img), self.alpha, self.sigma, mask, to_tensor=self.to_tensor)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '(alpha value={0})'.format(self.alpha)
         format_string += ', sigma={0}'.format(self.sigma)
         format_string += ')'
         return format_string
+
+
+class Transform_3D_Mask_Label(object):
+    def __init__(self, transforms, elastic = True, normalize = None):
+
+        assert isinstance(normalize, (type(None), tuple)), 'normalize must either be NoneType or Tuple of mean and std'
+
+        self.transforms = transforms
+        self.elastic = elastic
+        self.normalize = normalize
+
+    def __call__(self, img, target):
+
+        assert isinstance(img, np.ndarray), 'Image data must be either numpy array'
+        assert isinstance(target, np.ndarray), 'Label must be either numpy array'
+
+        seed = np.random.randint(2147483647) # make a seed with numpy generator 
+        random.seed(seed) # apply this seed to img tranfsorms
+        torch.manual_seed(seed) # needed for torchvision 0.7
+
+        img = np.squeeze(img)
+        img = np.moveaxis(img, 0, 2)
+        img = self.transforms(img)
+        img = torch.unsqueeze(img, 0)
+
+        random.seed(seed) # apply this seed to target tranfsorms
+        torch.manual_seed(seed) # needed for torchvision 0.7
+
+        target = np.squeeze(target)
+        target = np.moveaxis(target, 0, 2)
+        target = self.transforms(target)
+        target = torch.unsqueeze(target, 0)
+
+        # Random Elastic Transform
+        if self.elastic:
+            alpha = random.randint(0,2)
+            preprocess = RandomElastic(alpha=alpha, sigma=0.06)
+            img, target = preprocess(img, target)
+
+        if self.normalize is not None:
+            mean, std = self.normalize
+            normarlize_transform = T.Normalize(mean, std)
+            img = normarlize_transform(img)
+        
+        return img, target
