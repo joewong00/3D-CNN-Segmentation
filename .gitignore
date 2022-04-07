@@ -137,5 +137,5 @@ dmypy.json
 
 # Model and output file
 model/
-output/
 test/
+training/

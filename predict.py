@@ -1,7 +1,5 @@
 import argparse
-import numpy as np
 import torch
-import torchvision.transforms as T
 import logging
 import os
 import nibabel as nib
@@ -9,8 +7,8 @@ import nibabel as nib
 from residual3dunet.model import UNet3D
 from residual3dunet.res3dunetmodel import ResidualUNet3D
 from torch.nn import DataParallel
-from segmentation_statistics import SegmentationStatistics
-from utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped, preprocess
+from utils.segmentation_statistics import SegmentationStatistics
+from utils.utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped, preprocess
 
 
 def predict(model,input,threshold,device):
@@ -37,8 +35,6 @@ def predict(model,input,threshold,device):
 
 		# Convert to numpy
 		preds = preds.cpu().numpy()
-
-	preds = to_depth_last(preds)
 
 	return preds
 
@@ -85,16 +81,20 @@ def main():
 	logging.info('Model loaded!')
 	logging.info(f'\nPredicting image {filename} ...')
 
-	data = read_data_as_numpy(args.input)
+	data = preprocess(read_data_as_numpy(args.input), rotate=True, to_tensor=False)
 
 	prediction = predict(model, data, args.mask_threshold, device)
 
 	if not args.no_save:
-		# Save prediction mask as nii.gz
-		image_data = numpy_to_nii(prediction)
-		nib.save(image_data,f"Mask_{filename}")
+		# Save prediction mask as nii.gz at output dir
 
-		logging.info(f'\nMask saved to Mask_{filename}')
+		if not os.path.exists('output'):
+			os.mkdir('output')
+
+		image_data = numpy_to_nii(prediction)
+		nib.save(image_data, f"output/Mask_{filename}")
+
+		logging.info(f'\nMask saved to output/Mask_{filename}')
 
 	if args.viz:
 		visualize2d(prediction)

@@ -5,15 +5,11 @@ from residual3dunet.model import ResidualUNet3D, UNet3D
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
-from utils import load_checkpoint, plot_train_loss, save_model
-from lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
+from utils.utils import load_checkpoint, plot_train_loss, save_model
+from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
 
-import os
 import torch
 import argparse
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import torch.optim as optim
 import torchvision.transforms as T
 import logging
 
@@ -134,10 +130,11 @@ def main():
 
     # Data Loading
     transformation = T.Compose([T.ToTensor(),
-                    T.Normalize(),
                     T.RandomHorizontalFlip(),
                     T.RandomRotation(90),
-                    T.RandomCrop((240,240), padding=50, pad_if_needed=True)])
+                    T.RandomCrop((240,240), padding=50, pad_if_needed=True)
+                    ])
+
 
     traindataset = MRIDataset(train=True, transform=transformation, elastic=True)
     # testdataset = MRIDataset(train=False, transform=T.ToTensor())
@@ -178,7 +175,6 @@ def main():
 
         print('Average train loss: {}'.format(trainloss))
         print('Average test loss: {}'.format(valloss))
-        # dice = check_accuracy(test_loader, model, device=device)
         loss_train.append(trainloss)
         loss_val.append(valloss)
         print()

@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from segmentation_statistics import SegmentationStatistics
-from utils import compute_average
+from utils.segmentation_statistics import SegmentationStatistics
+from utils.utils import compute_average
 
 
 def evaluate(net, dataloader, device, show_stat=False):
@@ -44,6 +44,5 @@ def evaluate(net, dataloader, device, show_stat=False):
         print("\nChronic Kidney Disease:")
         print(compute_average(stats,25,None,dataframe=True))
 
-    
         
     return compute_average(stats)

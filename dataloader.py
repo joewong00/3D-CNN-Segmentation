@@ -1,7 +1,7 @@
 import h5py
 from torch.utils.data import Dataset
-from elastic_transform import Transform_3D_Mask_Label
-from utils import read_data_from_h5
+from utils.transform_3d import Transform_3D_Mask_Label
+from utils.utils import read_data_from_h5
 
 class MRIDataset(Dataset):
     def __init__(self, train=True, transform=None, elastic=True):

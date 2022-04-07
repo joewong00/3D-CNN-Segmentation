@@ -1,7 +1,7 @@
 import torch.nn as nn
 import numpy as np
 from residual3dunet.buildingblocks import DoubleConv, ExtResNetBlock, create_decoders, create_encoders
-from utils import number_of_features_per_level
+from utils.utils import number_of_features_per_level
 
 # Source: https://github.com/wolny/pytorch-3dunet
 class ResidualUNet3D(nn.Module):

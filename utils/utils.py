@@ -1,8 +1,6 @@
 from matplotlib.backends.backend_pdf import PdfPages
-# from elastic_transform import RandomElastic
 
 import torch
-import torchvision.transforms as T
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -10,15 +8,14 @@ import pandas as pd
 import nibabel as nib
 import re
 import h5py
-import shutil
 import os
-import random
+
 
 
 ########################################### PREPROCESS ###########################################
 
 def preprocess(data, rotate=True, to_tensor=True):
-    """Preprocess a single input data
+    """Preprocess a single input data (to depth first, rotate, make depth 14, to tensor)
     
     """
     assert len(data.shape) in (3,4), 'Data must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
@@ -73,7 +70,7 @@ def save_model(state, is_best, checkpoint_dir):
         is_best (bool): if True state contains the best model seen so far
         checkpoint_dir (string): directory where the checkpoint are to be saved
     """
-    # If path does o
+    # If path does not exist then create directory
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
@@ -105,37 +102,6 @@ def load_checkpoint(checkpoint_path, model, device):
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
 
-# def get_loaders(train=True, transform=None, elastic_transform=True, split=False, **kwargs):
-#     """Obtain the dataset loader (train or test set).
-#     Args:
-#         train (bool): if True return training dataset
-#         transform (torchvision.transforms): apply transformation to data
-#         elastic_transform (bool): if True apply elastic transformation to data
-#         split (bool): if True perform train-val set splitting randomly 90/10
-#         **kwargs : other dataloader parameters
-#     Returns:
-#         dataset loader (train, val) | test
-    
-#     """
-    
-#     # Get the train dataset or test dataset loader
-#     dataset = MRIDataset(train=train, transform=transform, elastic=elastic_transform)
-
-#     # train/val split
-#     if split:
-#         train_set, val_set = random_split(dataset, [int(len(dataset)*0.9),int(len(dataset)*0.1)])
-#         trainloader = DataLoader(dataset=train_set, **kwargs)
-#         valloader = DataLoader(dataset=val_set, **kwargs)
-
-#         return trainloader, valloader
-    
-#     # train set / test set
-#     else:
-#         dataloader = DataLoader(dataset=dataset, **kwargs)
-
-#         return dataloader
-
-
 def number_of_features_per_level(init_channel_number, num_levels):
     """Return a list of features, doubling in size depending on the num_levels.
     Args:
@@ -150,44 +116,6 @@ def number_of_features_per_level(init_channel_number, num_levels):
 
 
 ########################################### EVALUATION ###########################################
-
-# def dice_coefficient(pred, target):
-
-#     smooth = 1.
-
-#     iflat = pred.contiguous().view(-1)
-#     tflat = target.contiguous().view(-1)
-#     intersection = (iflat * tflat).sum()
-
-#     A_sum = torch.sum(tflat * iflat)
-#     B_sum = torch.sum(tflat * tflat)
-    
-#     return 1 - ((2. * intersection + smooth) / (A_sum + B_sum + smooth) )
-
-
-# def check_accuracy(loader, model, device="cuda"):
-#     num_correct = 0
-#     num_pixels = 0
-#     dice_score = 0
-#     model.eval()
-
-#     with torch.no_grad():
-#         for x, y in loader:
-#             x = x.float().to(device)
-#             y = y.float().to(device)
-#             preds = torch.sigmoid(model(x))
-
-#             preds = (preds > 0.5).float()
-
-#             num_correct += (preds == y).sum()
-#             num_pixels += torch.numel(preds)
-
-#             dice_score += dice_coefficient(preds, y)
-            
-#     print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
-#     print(f"Dice score: {dice_score/len(loader)}")
-#     return dice_score/len(loader)
-
 
 def plot_train_loss(loss_train, loss_val):
     """Plot the graph of loss during training, x value = number of epoch.
@@ -324,7 +252,7 @@ def visualize2d(data, size=(3,3)):
         data = np.squeeze(data)
 
     # Save image to pdf
-    pdf = PdfPages("image.pdf")
+    pdf = PdfPages("output/image.pdf")
 
     # Plot 3D data depth-wise
     for i in range(depth):
@@ -416,12 +344,13 @@ def plot_sidebyside(feature, prediction, target, depth):
         plt.axis('off')
 
 
-def plot_overlapped(feature, prediction, target):
+def plot_overlapped(feature, prediction, target, output_dir='output'):
     """Plot the feature, predicted mask and groundtruth overlapping each other.
     Args:
         feature (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the original feature image
         prediction (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the predicted mask
         target (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the ground truth mask
+        output_dir (path like): Output plot directory
     """
     # Plotting the data, prediction and target, overlapping each other
 
@@ -430,7 +359,6 @@ def plot_overlapped(feature, prediction, target):
     assert len(target.shape) in (3,4), 'target must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
 
     # Preprocessing feature, prediction and target
-    # feature = convert_to_numpy(to_depth_last(feature))
     feature = greytoRGB(to_depth_last(feature))
     prediction = convert_to_numpy(to_depth_last(prediction))
     target = convert_to_numpy(to_depth_last(target))
@@ -441,11 +369,13 @@ def plot_overlapped(feature, prediction, target):
     prediction = np.squeeze(prediction)
     target = np.squeeze(target)
 
+    # Add colour to masks    
     prediction = add_mask_colour(prediction, "red")
     target = add_mask_colour(target, "blue")
 
     overlap = prediction + target
 
+    # Set masked pixels as 1
     feature[overlap.astype(bool)] = 1
 
     # Colour labelling
@@ -454,7 +384,10 @@ def plot_overlapped(feature, prediction, target):
     patches = [ mpatches.Patch(color=colors[i], label=values[i] ) for i in range(len(values)) ]
 
     # Save image to pdf
-    pdf = PdfPages("result.pdf")
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    pdf = PdfPages(os.path.join(output_dir, 'result.pdf'))
 
     # Plot 3D data depth-wise
     for i in range(depth):
