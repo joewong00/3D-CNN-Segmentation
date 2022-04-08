@@ -8,35 +8,8 @@ from residual3dunet.model import UNet3D
 from residual3dunet.res3dunetmodel import ResidualUNet3D
 from torch.nn import DataParallel
 from utils.segmentation_statistics import SegmentationStatistics
-from utils.utils import load_checkpoint, read_data_as_numpy, add_channel, to_depth_first, numpy_to_nii, visualize2d, to_depth_last, plot_overlapped, preprocess
+from utils.utils import load_checkpoint, read_data_as_numpy, numpy_to_nii, visualize2d, plot_sidebyside, plot_overlapped, preprocess, predict
 
-
-def predict(model,input,threshold,device):
-
-	model.eval()
-
-	input = to_depth_first(input)
-
-	if len(input.shape) == 3:
-		input = add_channel(input)
-
-	# Add batch dimension
-	input = input.unsqueeze(0)
-	input = input.to(device=device, dtype=torch.float32)
-
-	# Disable grad
-	with torch.no_grad():
-
-		output = model(input)
-		preds = (output > threshold).float()
-
-		# Squeeze channel and batch dimension
-		preds = torch.squeeze(preds)
-
-		# Convert to numpy
-		preds = preds.cpu().numpy()
-
-	return preds
 
 def get_args():
 	# Test settings
@@ -76,7 +49,6 @@ def main():
 		model = DataParallel(model)
 
 	load_checkpoint(args.model, model ,device=device)
-	# model.load_state_dict(torch.load(args.model, map_location=device))
 
 	logging.info('Model loaded!')
 	logging.info(f'\nPredicting image {filename} ...')
@@ -104,6 +76,7 @@ def main():
 		target = preprocess(read_data_as_numpy(args.mask),rotate=True, to_tensor=False)
 
 		plot_overlapped(data, prediction, target)
+		plot_sidebyside(data, prediction, target)
 
 		prediction = prediction.astype(bool)
 		target = target.astype(bool)

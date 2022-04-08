@@ -1,6 +1,6 @@
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
-from utils import convert_to_numpy, add_channel, to_depth_last
+from utils.utils import convert_to_numpy, add_channel, to_depth_last
 
 import numbers
 import numpy as np

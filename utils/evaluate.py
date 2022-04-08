@@ -4,7 +4,16 @@ from utils.segmentation_statistics import SegmentationStatistics
 from utils.utils import compute_average
 
 
-def evaluate(net, dataloader, device, show_stat=False):
+def evaluate(net, dataloader, device, threshold, show_stat=False):
+    """Evaluate the model using test data using different evaluation metrics (check utils/segmentation_statistics.py)
+    Args:
+        net (torch.nn.Module): Trained model
+        dataloader (DataLoader): Test data loader
+        device (torch.device): Device (cpu or cuda)
+        show stat (bool): Show the statistical result based on dataset cohort
+    Returns:
+        stats (dict): the average evaluation metrics
+    """
 
     stats = []
     net.eval()
@@ -17,7 +26,7 @@ def evaluate(net, dataloader, device, show_stat=False):
             data, target = data.float().to(device), target.float().to(device)
             output = net(data)
 
-            preds = (F.sigmoid(output) > 0.5).float()
+            preds = (output > threshold).float()
 
 			# Convert to numpy boolean
             preds = preds.cpu().numpy()
@@ -27,7 +36,7 @@ def evaluate(net, dataloader, device, show_stat=False):
 
             batch, channel, depth, width, height = preds.shape
 
-            for idx in len(batch):  
+            for idx in range(batch):  
                 stat = SegmentationStatistics(preds[idx,0,:,:,:], target[idx,0,:,:,:], (3,2,1))
                 stats.append(stat.to_dict())
 

@@ -16,7 +16,12 @@ import os
 
 def preprocess(data, rotate=True, to_tensor=True):
     """Preprocess a single input data (to depth first, rotate, make depth 14, to tensor)
-    
+    Args: 
+        data (np.ndarray): 3D or 4D numpy array (W * H * D) or (C * W * H * D)
+        rotate (bool): Rotate the input image 90 degree (W,H) - > (H,W)
+        to_tensor (bool): Convert preprocessed data to torch tensors
+    Returns:
+        data (np.ndarray | torch.tensor): Processed Data
     """
     assert len(data.shape) in (3,4), 'Data must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
     assert isinstance(data, np.ndarray), 'Data must be either numpy array'
@@ -34,10 +39,12 @@ def preprocess(data, rotate=True, to_tensor=True):
     depth_pad = 14 - data.shape[0]
     data = np.pad(data, ((0,depth_pad),(0,0),(0,0)))
 
+    # Convert to torch tensors
     if to_tensor:
         data = torch.from_numpy(data)
 
     return data
+
 
     
 def write_to_h5(dir, out_filename):
@@ -46,8 +53,11 @@ def write_to_h5(dir, out_filename):
         dir (pathlike): path to the dataset directory
         out_filename (string): output file name
     """
+
+    # Create output h5 file
     hf = h5py.File('./dataset/'+out_filename+'.h5','w')
 
+    # For every file in dataset directory
     for file in sorted(os.listdir(dir)):
         if file.endswith(".nii.gz"):
 
@@ -59,6 +69,7 @@ def write_to_h5(dir, out_filename):
             hf.create_dataset(f'{filename}', data=data)
 
     hf.close()
+
 
 
 ########################################### MODEL ###########################################
@@ -78,13 +89,12 @@ def save_model(state, is_best, checkpoint_dir):
     if is_best:
         best_file_path = os.path.join(checkpoint_dir, 'model.pt')
 
-        if os.path.exists(best_file_path):  # checking if there is a file with this name
-            os.remove(best_file_path)  # deleting the file
-            torch.save(state.state_dict(), best_file_path)
+        torch.save(state.state_dict(), best_file_path)
     
     else:
         last_file_path = os.path.join(checkpoint_dir, 'last_model.pt')
         torch.save(state.state_dict(), last_file_path)
+
 
 
 def load_checkpoint(checkpoint_path, model, device):
@@ -102,6 +112,7 @@ def load_checkpoint(checkpoint_path, model, device):
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
 
+
 def number_of_features_per_level(init_channel_number, num_levels):
     """Return a list of features, doubling in size depending on the num_levels.
     Args:
@@ -112,6 +123,34 @@ def number_of_features_per_level(init_channel_number, num_levels):
     eg. number_of_features_per_level(64,4) -> [64,128,256,512]
     """
     return [init_channel_number * 2 ** k for k in range(num_levels)]
+
+
+def predict(model,input,threshold,device):
+
+	model.eval()
+
+	input = to_depth_first(input)
+
+	if len(input.shape) == 3:
+		input = add_channel(input)
+
+	# Add batch dimension
+	input = input.unsqueeze(0)
+	input = input.to(device=device, dtype=torch.float32)
+
+	# Disable grad
+	with torch.no_grad():
+
+		output = model(input)
+		preds = (output > threshold).float()
+
+		# Squeeze channel and batch dimension
+		preds = torch.squeeze(preds)
+
+		# Convert to numpy
+		preds = preds.cpu().numpy()
+
+	return preds
 
 
 
@@ -130,6 +169,7 @@ def plot_train_loss(loss_train, loss_val):
     plt.savefig('Training Loss.png')
 
 
+
 def plot_train_accuracy(acc_train, acc_val):
     """Plot the graph of accuracy during training, x value = number of epoch.
     Args: 
@@ -141,6 +181,7 @@ def plot_train_accuracy(acc_train, acc_val):
     plt.legend()
     plt.show()
     plt.savefig('Training Accuracy.png')
+
 
 
 def plot_loss_from_log(log):
@@ -163,6 +204,7 @@ def plot_loss_from_log(log):
         loss_train.append(float(trainloss[i][1]))
 
     plot_train_loss(loss_train, loss_test)
+
 
 
 def plot_accuracy_from_log(log):
@@ -189,6 +231,7 @@ def plot_accuracy_from_log(log):
     plt.plot(test_dice, label="Dice Score")
     plt.plot(test_accuracy, label="Accuracy")
     plt.legend()
+
 
 
 def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
@@ -229,6 +272,7 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
     return stats
 
 
+
 ########################################### VISUALIZATION ###########################################
 
 def visualize2d(data, size=(3,3)):
@@ -257,6 +301,7 @@ def visualize2d(data, size=(3,3)):
     # Plot 3D data depth-wise
     for i in range(depth):
         fig = plt.figure(figsize=size)
+        plt.title('Data')
         plt.imshow(data[:,:,i],cmap='gray')
         plt.axis('off')
         plt.show()
@@ -302,6 +347,7 @@ def add_mask_colour(mask, colour="red"):
     return mask
 
 
+
 def greytoRGB(data):
     """Convert image data from greyscale to RGB images (add RGB channel)
     Args:
@@ -324,24 +370,46 @@ def greytoRGB(data):
     return data
 
 
-def plot_sidebyside(feature, prediction, target, depth):
-    """Plot the feature, predicted mask and groundtruth side by side to compare
+
+def plot_sidebyside(feature, prediction, target, save_file=True):
+    """Plot the feature, predicted mask and groundtruth side by side to compare.
+    Args:
+        feature (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the original feature image
+        prediction (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the predicted mask
+        target (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the ground truth mask
     """
-    # Plotting the original data, prediction and target in 3 columns (each row represents the depth)
 
-    assert len(feature.shape) == 4, "Feature, prediction and target must have 4 dimensions (C,D,W,H)"
-    assert feature.shape == prediction.shape == target.shape, "Feature, prediction and target must have the same dimensions"
+    assert len(feature.shape) in (3,4), 'feature must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
+    assert len(prediction.shape) in (3,4), 'prediction must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
+    assert len(target.shape) in (3,4), 'target must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
 
-    f, axarr = plt.subplots(14,3,figsize=(100,100))
+    f, axarr = plt.subplots(14,3,figsize=(50,50))
 
-    if torch.is_tensor(prediction):
-        prediction = prediction.numpy()
+    f.suptitle('Output Comparison (Feature | Prediction | GroundTruth)', fontsize=50)
+
+    # Preprocessing feature, prediction and target
+    feature = np.squeeze(convert_to_numpy(feature))
+    prediction = np.squeeze(convert_to_numpy(prediction))
+    target = np.squeeze(convert_to_numpy(target))
+
+    feature = to_depth_last(feature)
+    prediction = to_depth_last(prediction)
+    target = to_depth_last(target)
+    
+    depth = prediction.shape[-1]
 
     for i in range(depth):
-        axarr[i,0].imshow(feature[0,i,:,:],cmap='gray')
-        axarr[i,1].imshow(prediction[0,i,:,:],cmap='gray')
-        axarr[i,2].imshow(target[0,i,:,:],cmap='gray')
-        plt.axis('off')
+        axarr[i,0].imshow(feature[:,:,i],cmap='gray')
+        axarr[i,1].imshow(prediction[:,:,i],cmap='gray')
+        axarr[i,2].imshow(target[:,:,i],cmap='gray')
+        
+
+    if save_file:
+        # Save image to pdf
+        pdf = PdfPages("output/compare.pdf")
+        pdf.savefig(f)
+        pdf.close()
+
 
 
 def plot_overlapped(feature, prediction, target, output_dir='output'):
@@ -352,22 +420,21 @@ def plot_overlapped(feature, prediction, target, output_dir='output'):
         target (np.ndarray/torch.tensors): A 3D or a 4D array/tensor, the ground truth mask
         output_dir (path like): Output plot directory
     """
-    # Plotting the data, prediction and target, overlapping each other
 
     assert len(feature.shape) in (3,4), 'feature must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
     assert len(prediction.shape) in (3,4), 'prediction must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
     assert len(target.shape) in (3,4), 'target must contain 3 or 4 dimensions: (W*H*D) or (C*W*H*D)'
 
     # Preprocessing feature, prediction and target
+    feature = np.squeeze(convert_to_numpy(feature))
+    prediction = np.squeeze(convert_to_numpy(prediction))
+    target = np.squeeze(convert_to_numpy(target))
+
     feature = greytoRGB(to_depth_last(feature))
-    prediction = convert_to_numpy(to_depth_last(prediction))
-    target = convert_to_numpy(to_depth_last(target))
+    prediction = to_depth_last(prediction)
+    target = to_depth_last(target)
 
     depth = prediction.shape[-1]
-
-    # Convert to 3D
-    prediction = np.squeeze(prediction)
-    target = np.squeeze(target)
 
     # Add colour to masks    
     prediction = add_mask_colour(prediction, "red")
@@ -392,6 +459,7 @@ def plot_overlapped(feature, prediction, target, output_dir='output'):
     # Plot 3D data depth-wise
     for i in range(depth):
         fig = plt.figure()
+        plt.title('Output')
         plt.imshow(feature[:,:,i,:])
         plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
         plt.axis('off')
@@ -411,6 +479,7 @@ def channel_exist(data):
     # Check if channel dimension exist in the data
     return 1 in data.shape
     
+
 def add_channel(data, dim=0):
     # Add channel dimension to the first dimension of 3D data
 
@@ -461,11 +530,12 @@ def convert_to_numpy(data):
 
 
 def read_data_as_numpy(image_path):
-    # Read data and convert to numpy array
+    # Read data and convert to numpy array (data in the format of nii.gz)
 
-    image_obj = nib.load(image_path)
+    assert os.path.exists(image_path), 'Path not found'
 
     # Extract data as numpy array
+    image_obj = nib.load(image_path)
     image_data = image_obj.get_fdata()
 
     return image_data

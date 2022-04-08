@@ -3,7 +3,7 @@ import torch
 import random
 import torchvision.transforms as T
 
-from elastic_transform import RandomElastic
+from utils.elastic_transform import RandomElastic
 
 
 class Transform_3D_Mask_Label(object):

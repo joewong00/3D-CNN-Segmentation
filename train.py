@@ -1,6 +1,5 @@
 from torch.optim import Adam
 from dataloader import MRIDataset
-from evaluate import evaluate
 from residual3dunet.model import ResidualUNet3D, UNet3D
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
@@ -20,10 +19,10 @@ def train(args, model, device, train_loader, optimizer, epoch, criterion):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
 
-        assert data.shape[1] == model.in_channels, \
-                    f'Network has been defined with {model.n_channels} input channels, ' \
-                    f'but loaded images have {data.shape[1]} channels. Please check that ' \
-                    'the images are loaded correctly.'
+        # assert data.shape[1] == model.in_channels, \
+        #             f'Network has been defined with {model.n_channels} input channels, ' \
+        #             f'but loaded images have {data.shape[1]} channels. Please check that ' \
+        #             'the images are loaded correctly.'
 
         data, target = data.float().to(device), target.float().to(device)
         
@@ -74,7 +73,6 @@ def get_args():
     parser = argparse.ArgumentParser(description='PyTorch 3D Segmentation')
     parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N',help='input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type=int, default=3, metavar='N',help='number of epochs to train (default: 14)')
     parser.add_argument('--lr', type=float, default=2.5e-4, metavar='LR', help='learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.1, metavar='M',help='Learning rate step gamma (default: 0.7)')
@@ -89,6 +87,8 @@ def get_args():
 
 
 def main():
+
+    # ------------------------------------ Network Config ------------------------------------
 
     args = get_args()
 
@@ -112,7 +112,6 @@ def main():
 	# Specify network
     if args.network.casefold() == "unet3d":
         model = UNet3D(in_channels=1, out_channels=1).to(device)
-
     else:
         model = ResidualUNet3D(in_channels=1, out_channels=1).to(device)
 
@@ -124,37 +123,40 @@ def main():
     if args.checkpoint:
         load_checkpoint(args.checkpoint, model, device=device)
 
-    logging.info(f'Network:\n'
-                f'\t{model.in_channels} input channels\n'
-                f'\t{model.out_channels} output channels (classes)\n')
+    # Hyperparameters
+    optimizer = Adam(model.parameters(), lr=args.lr)
+    scheduler = StepLR(optimizer, step_size=50, gamma=args.gamma)
+    loss = DiceBCELoss()
 
-    # Data Loading
+
+    # logging.info(f'Network:\n'
+    #             f'\t{model.in_channels} input channels\n'
+    #             f'\t{model.out_channels} output channels (classes)\n')
+
+
+    # ------------------------------------ Data Loading ------------------------------------
+
+    # Train data transformation
     transformation = T.Compose([T.ToTensor(),
                     T.RandomHorizontalFlip(),
                     T.RandomRotation(90),
                     T.RandomCrop((240,240), padding=50, pad_if_needed=True)
                     ])
 
-
     traindataset = MRIDataset(train=True, transform=transformation, elastic=True)
-    # testdataset = MRIDataset(train=False, transform=T.ToTensor())
 
+    # Train validation set splitting 90/10
     train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
 
     train_loader = DataLoader(dataset=train_set, **train_kwargs)
     val_loader = DataLoader(dataset=val_set, **train_kwargs)
-    # test_loader = DataLoader(dataset=testdataset, **test_kwargs)
  
-    # Hyperparameters
-    optimizer = Adam(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=50, gamma=args.gamma)
-    loss = DiceBCELoss()
+    # ------------------------------------ Training Loop ------------------------------------
 
     # Validation Loss
     minvalidation = 1
     loss_train = []
     loss_val = []
-    min_dice = 1
 
     logging.info(f'''Starting training:
         Network:         {args.network}
@@ -169,9 +171,8 @@ def main():
     # Training process
     for epoch in range(1, args.epochs + 1):
 
-        # Training
         trainloss = train(args, model, device, train_loader, optimizer, epoch, loss)
-        valloss = evaluate(model, val_loader, device, loss)
+        valloss = test(model, device, val_loader, epoch, loss)
 
         print('Average train loss: {}'.format(trainloss))
         print('Average test loss: {}'.format(valloss))
@@ -181,12 +182,14 @@ def main():
         
         scheduler.step()
 
+        # Save the best validated model
         if valloss < minvalidation and args.save_model:
             minvalidation = valloss
 
             save_model(model, is_best=True, checkpoint_dir='checkpoints')
 
-    # plot_train_loss(loss_train, loss_val)
+    # Plot training loss graph
+    plot_train_loss(loss_train, loss_val)
 
 
 if __name__ == '__main__':
