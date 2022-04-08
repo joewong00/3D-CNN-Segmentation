@@ -15,10 +15,11 @@ Data          |  Mask
 
 - [Quick start](#quick-start)
 - [Description](#description)
+  - [Files](#files)
+  - [Network](#network)
 - [Usage](#usage)
   - [Training](#training)
   - [Prediction](#prediction)
-- [Pretrained model](#pretrained-model)
 - [Data](#data)
 - [Reference](#reference)
 
