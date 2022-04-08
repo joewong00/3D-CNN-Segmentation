@@ -5,11 +5,11 @@
 
 Data          |  Mask
 :-------------------------:|:-------------------------:
-<img src="images/data.gif" alt="drawing" width="300"/>  |  <img src="images/mask.gif" alt="drawing" width="300"/>
+<img src="images/data.gif" alt="3D data" width="300"/>  |  <img src="images/mask.gif" alt="3D mask" width="300"/>
 
 
 ## Output
-<img src="images/predicted.gif" alt="drawing" width="300"/>
+<img src="images/predicted.gif" alt="predicted output" width="300"/>
 
 ---
 
@@ -37,11 +37,19 @@ pip install -r requirements.txt
 This model was trained from scratch with 50 3D kidney MRI and scored a [Dice coefficient](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) of 0.929516 on over 50 test MRI.
 
 ### Files:
-`main.ipynb`: 
+- `main.ipynb`: Contains the main elements for data visualization, single data predicting and evaluation
+- `train.py`: Script for model training
+- `test.py`: Script for model testing
+- `dataloader.py`: Custom dataset dataloading class
+- `predict.py`: Script for predicting single image data and evaluation
 
 ### Network
+**Reference: [wolny/pytorch-3dunet](https://github.com/wolny/pytorch-3dunet)**
 #### 3D Residual UNet
-![](images/3dresunet.png)
+![3D Residual UNet](images/3dresunet.png)
+
+#### 3D UNet
+![3D UNet](images/3dunet.png)
 
 ## Usage
 **Note : Use Python 3.6 or newer**
@@ -49,104 +57,102 @@ This model was trained from scratch with 50 3D kidney MRI and scored a [Dice coe
 
 ```console
 > python train.py -h
-usage: train.py [-h] [--epochs E] [--batch-size B] [--learning-rate LR]
-                [--load LOAD] [--scale SCALE] [--validation VAL] [--amp]
+usage: train.py [-h] [--network NETWORK] [--batch-size N] [--epochs N]
+                [--lr LR] [--gamma M] [--no-cuda] [--dry-run] [--seed S]
+                [--log-interval N] [--save-model] [--checkpoint FILE]
 
-Train the UNet on images and target masks
+PyTorch 3D Segmentation
 
 optional arguments:
   -h, --help            show this help message and exit
-  --epochs E, -e E      Number of epochs
-  --batch-size B, -b B  Batch size
-  --learning-rate LR, -l LR
-                        Learning rate
-  --load LOAD, -f LOAD  Load model from a .pth file
-  --scale SCALE, -s SCALE
-                        Downscaling factor of the images
-  --validation VAL, -v VAL
-                        Percent of the data that is used as validation (0-100)
-  --amp                 Use mixed precision
+  --network NETWORK, -u NETWORK
+                        Specify the network (Unet3D / ResidualUnet3D)
+  --batch-size N        input batch size for training (default: 1)
+  --epochs N            number of epochs to train (default: 10)
+  --lr LR               learning rate (default: 2.5e-4)
+  --gamma M             Learning rate step gamma (default: 0.1)
+  --no-cuda             disables CUDA training
+  --dry-run             quickly check a single pass
+  --seed S              random seed (default: 1)
+  --log-interval N      how many batches to wait before logging training
+                        status
+  --save-model          For Saving the current Model
+  --checkpoint FILE, -c FILE
+                        Specify the path to the model
 ```
-
-By default, the `scale` is 0.5, so if you wish to obtain better results (but use more memory), set it to 1.
-
-Automatic mixed precision is also available with the `--amp` flag. [Mixed precision](https://arxiv.org/abs/1710.03740) allows the model to use less memory and to be faster on recent GPUs by using FP16 arithmetic. Enabling AMP is recommended.
+If a checkpoint exist, then use --checkpoint to specify the path to the checkpoint to continue training
 
 
 ### Prediction
+- For test dataset, use `test.py`
+- For single image testing, use `predict.py` or `main.ipynb`
 
-After training your model and saving it to `MODEL.pth`, you can easily test the output masks on your images via the CLI.
+After training your model and saving it to `checkpoints/model.pt`, you can easily test the output masks on your images via the CLI or `main.ipynb`
 
-To predict a single image and save it:
-
-`python predict.py -i image.jpg -o output.jpg`
-
-To predict a multiple images and show them without saving them:
-
-`python predict.py -i image1.jpg image2.jpg --viz --no-save`
+To predict a single image and compare result with its mask:
+`python predict.py --network "ResidualUnet3D" --model 'checkpoints/model.pt' --input "./MRI1_T2.nii.gz" --mask "./MRI1_T2mask.nii.gz"`
 
 ```console
 > python predict.py -h
-usage: predict.py [-h] [--model FILE] --input INPUT [INPUT ...] 
-                  [--output INPUT [INPUT ...]] [--viz] [--no-save]
-                  [--mask-threshold MASK_THRESHOLD] [--scale SCALE]
+usage: predict.py [-h] [--network NETWORK] [--model FILE] --input INPUT
+                  [--mask INPUT] [--viz] [--no-save] [--no-cuda]
+                  [--mask-threshold MASK_THRESHOLD]
 
 Predict masks from input images
 
 optional arguments:
   -h, --help            show this help message and exit
+  --network NETWORK, -u NETWORK
+                        Specify the network (Unet3D / ResidualUnet3D)
   --model FILE, -m FILE
-                        Specify the file in which the model is stored
-  --input INPUT [INPUT ...], -i INPUT [INPUT ...]
-                        Filenames of input images
-  --output INPUT [INPUT ...], -o INPUT [INPUT ...]
-                        Filenames of output images
-  --viz, -v             Visualize the images as they are processed
+                        Specify the path to the file in which the model is
+                        stored (default:model.pt)
+  --input INPUT, -i INPUT
+                        Path to the image file (format: nii.gz)
+  --mask INPUT, -l INPUT
+                        Path to the ground truth of the input image
+                        (if_available) (default:None)
+  --viz, -v             Visualize the output (default:True)
   --no-save, -n         Do not save the output masks
+  --no-cuda             disables CUDA testing (default: False)
   --mask-threshold MASK_THRESHOLD, -t MASK_THRESHOLD
-                        Minimum probability value to consider a mask pixel white
-  --scale SCALE, -s SCALE
-                        Scale factor for the input images
+                        Minimum probability value to consider a mask pixel
+                        white (default: 0.5)
 ```
-You can specify which model file to use with `--model MODEL.pth`.
 
-## Weights & Biases
+To predict the whole test dataset (with test dataloader):
+`python test.py --network "ResidualUNet3D" --model "checkpoints/model.pt" --batch-size 1`
 
-The training progress can be visualized in real-time using [Weights & Biases](https://wandb.ai/).  Loss curves, validation curves, weights and gradient histograms, as well as predicted masks are logged to the platform.
-
-When launching a training, a link will be printed in the console. Click on it to go to your dashboard. If you have an existing W&B account, you can link it
- by setting the `WANDB_API_KEY` environment variable. If not, it will create an anonymous run which is automatically deleted after 7 days.
-
-
-## Pretrained model
-A [pretrained model](https://github.com/milesial/Pytorch-UNet/releases/tag/v3.0) is available for the Carvana dataset. It can also be loaded from torch.hub:
-
-```python
-net = torch.hub.load('milesial/Pytorch-UNet', 'unet_carvana', pretrained=True, scale=0.5)
 ```
-Available scales are 0.5 and 1.0.
+> python test.py -h
+usage: test.py [-h] [--network NETWORK] [--model FILE] [--batch-size N]
+               [--no-cuda] [--mask-threshold MASK_THRESHOLD]
+
+Evaluate using test loader
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --network NETWORK, -u NETWORK
+                        Specify the network (Unet3D / ResidualUnet3D)
+  --model FILE, -m FILE
+                        Specify the paht to the file in which the model is
+                        stored (model.pt)
+  --batch-size N        input batch size for testing (default: 1)
+  --no-cuda             disables CUDA testing (default: False)
+  --mask-threshold MASK_THRESHOLD, -t MASK_THRESHOLD
+                        Minimum probability value to consider a mask pixel
+                        white (default: 0.5)
+```
+
+
+You can specify which model file to use with `--model model.pt`.
 
 ## Data
-The Carvana data is available on the [Kaggle website](https://www.kaggle.com/c/carvana-image-masking-challenge/data).
+The input images and target masks (for training) should be in the `dataset/train/T2/` and `dataset/train/T2Masks/` folders respectively. Original dataset have 3D size (W * H * D), they are **preprocessed** by adding channel dimension and written into the [h5](https://www.hdfgroup.org/solutions/hdf5/) files for dataloading.
 
-You can also download it using the helper script:
-
-```
-bash scripts/download_data.sh
-```
-
-The input images and target masks should be in the `data/imgs` and `data/masks` folders respectively (note that the `imgs` and `masks` folder should not contain any sub-folder or any other files, due to the greedy data-loader). For Carvana, images are RGB and masks are black and white.
-
-You can use your own dataset as long as you make sure it is loaded properly in `utils/data_loading.py`.
-
+You can use your own dataset as long as you make sure it is loaded properly in `dataloader.py`.
 
 ---
-
-Original paper by Olaf Ronneberger, Philipp Fischer, Thomas Brox:
-
-[U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597)
-
-![network architecture](https://i.imgur.com/jeDVpqF.png)
 
 ## Reference: 
 - [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet)
