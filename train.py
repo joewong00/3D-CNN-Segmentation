@@ -1,7 +1,7 @@
 from torch.optim import Adam
 from dataloader import MRIDataset
 from residual3dunet.model import ResidualUNet3D, UNet3D
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
 from utils.utils import load_checkpoint, plot_train_loss, save_model
@@ -72,10 +72,10 @@ def get_args():
     # Train settings
     parser = argparse.ArgumentParser(description='PyTorch 3D Segmentation')
     parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',help='input batch size for training (default: 64)')
-    parser.add_argument('--epochs', type=int, default=3, metavar='N',help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=2.5e-4, metavar='LR', help='learning rate (default: 1.0)')
-    parser.add_argument('--gamma', type=float, default=0.1, metavar='M',help='Learning rate step gamma (default: 0.7)')
+    parser.add_argument('--batch-size', type=int, default=1, metavar='N',help='input batch size for training (default: 1)')
+    parser.add_argument('--epochs', type=int, default=10, metavar='N',help='number of epochs to train (default: 10)')
+    parser.add_argument('--lr', type=float, default=2.5e-4, metavar='LR', help='learning rate (default: 2.5e-4)')
+    parser.add_argument('--gamma', type=float, default=0.1, metavar='M',help='Learning rate step gamma (default: 0.1)')
     parser.add_argument('--no-cuda', action='store_true', default=False,help='disables CUDA training')
     parser.add_argument('--dry-run', action='store_true', default=False,help='quickly check a single pass')
     parser.add_argument('--seed', type=int, default=1, metavar='S',help='random seed (default: 1)')
@@ -98,13 +98,11 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
 
     train_kwargs = {'batch_size': args.batch_size, 'shuffle': True}
-    test_kwargs = {'batch_size': args.test_batch_size}
     if use_cuda:
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
                        'shuffle': True}
         train_kwargs.update(cuda_kwargs)
-        test_kwargs.update(cuda_kwargs)
 
 
     assert args.network.casefold() == "unet3d" or args.network.casefold() == "residualunet3d", 'Network must be either (Unet3D / ResidualUnet3D)'

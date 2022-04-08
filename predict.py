@@ -4,7 +4,7 @@ import logging
 import os
 import nibabel as nib
 
-from residual3dunet.model import UNet3D
+from residual3dunet.model import UNet3D, ResidualUNet3D
 from residual3dunet.res3dunetmodel import ResidualUNet3D
 from torch.nn import DataParallel
 from utils.segmentation_statistics import SegmentationStatistics
@@ -15,13 +15,13 @@ def get_args():
 	# Test settings
 	parser = argparse.ArgumentParser(description='Predict masks from input images')
 	parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
-	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the file in which the model is stored')
+	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the path to the file in which the model is stored (default:model.pt)')
 	parser.add_argument('--input', '-i', metavar='INPUT', help='Path to the image file (format: nii.gz)', required=True)
-	parser.add_argument('--mask', '-l', metavar='INPUT', default=None, help='Path to the ground truth of the input image (if_available)')
-	parser.add_argument('--viz', '-v', action='store_true', help='Visualize the output')
+	parser.add_argument('--mask', '-l', metavar='INPUT', default=None, help='Path to the ground truth of the input image (if_available) (default:None)')
+	parser.add_argument('--viz', '-v', action='store_true',  default=True, help='Visualize the output (default:True)')
 	parser.add_argument('--no-save', '-n', action='store_true', help='Do not save the output masks')
-	parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA testing')
-	parser.add_argument('--mask-threshold', '-t', type=float, default=0.5, help='Minimum probability value to consider a mask pixel white')
+	parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA testing (default: False)')
+	parser.add_argument('--mask-threshold', '-t', type=float, default=0.5, help='Minimum probability value to consider a mask pixel white (default: 0.5)')
 
 	return parser.parse_args()
 

@@ -1,26 +1,24 @@
 import argparse
-import matplotlib.pyplot as plt
 from dataloader import MRIDataset
 from residual3dunet.model import ResidualUNet3D, UNet3D
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.nn import DataParallel
-import numpy as np
 import torch
 import torchvision.transforms as T
-from utils.segmentation_statistics import SegmentationStatistics
+
 from utils.evaluate import evaluate
-from utils.utils import compute_average, load_checkpoint
-import os
+from utils.utils import load_checkpoint
+
 
 
 def get_args():
 	# Test settings
 	parser = argparse.ArgumentParser(description='Evaluate using test loader')
 	parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
-	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the file in which the model is stored')
-	parser.add_argument('--batch-size', type=int, default=1, metavar='N',help='input batch size for testing (default: 64)')
-	parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA testing')
-	parser.add_argument('--mask-threshold', '-t', type=float, default=0.5, help='Minimum probability value to consider a mask pixel white')
+	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the paht to the file in which the model is stored (model.pt)')
+	parser.add_argument('--batch-size', type=int, default=1, metavar='N',help='input batch size for testing (default: 1)')
+	parser.add_argument('--no-cuda', action='store_true', default=False, help='disables CUDA testing (default: False)')
+	parser.add_argument('--mask-threshold', '-t', type=float, default=0.5, help='Minimum probability value to consider a mask pixel white (default: 0.5)')
 
 	return parser.parse_args()
 
