@@ -1,5 +1,4 @@
 import torch.nn as nn
-import numpy as np
 from residual3dunet.buildingblocks import DoubleConv, ExtResNetBlock, create_decoders, create_encoders
 from utils.utils import number_of_features_per_level
 
