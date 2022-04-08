@@ -3,8 +3,10 @@
 <a href="#"><img src="https://img.shields.io/badge/python-v3.6+-blue.svg?logo=python&style=for-the-badge" /></a>
 ## Visualize Input and Mask
 
-<img src="images/data.gif" alt="drawing" width="300"/>
-<img src="images/mask.gif" alt="drawing" width="300"/>
+Data          |  Mask
+:-------------------------:|:-------------------------:
+<img src="images/data.gif" alt="drawing" width="300"/>  |  <img src="images/mask.gif" alt="drawing" width="300"/>
+
 
 ## Output
 <img src="images/predicted.gif" alt="drawing" width="300"/>
