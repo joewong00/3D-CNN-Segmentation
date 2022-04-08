@@ -123,7 +123,7 @@ optional arguments:
 To predict the whole test dataset (with test dataloader):
 `python test.py --network "ResidualUNet3D" --model "checkpoints/model.pt" --batch-size 1`
 
-```
+```console
 > python test.py -h
 usage: test.py [-h] [--network NETWORK] [--model FILE] [--batch-size N]
                [--no-cuda] [--mask-threshold MASK_THRESHOLD]
