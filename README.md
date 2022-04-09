@@ -26,13 +26,20 @@ Data          |  Mask
 ## Quick start
 
 1. Clone this repository
-2. [Install CUDA](https://developer.nvidia.com/cuda-downloads)
-3. [Install PyTorch](https://pytorch.org/get-started/locally/)
-4. Install dependencies
+```
+git clone https://github.com/joewong00/3D-CNN-Segmentation.git
+```
+2. Initialize local configuration and fetch data from submodule project (surface distance)
+```
+git submodule update --init
+```
+3. [Install CUDA](https://developer.nvidia.com/cuda-downloads)
+4. [Install PyTorch](https://pytorch.org/get-started/locally/)
+5. Install dependencies
 ```
 pip install -r requirements.txt
 ```
-5. Start with `main.ipynb` using Jupyter notebook or Google Colab
+6. Start with `main.ipynb` using Jupyter notebook or Google Colab
 
 ## Description
 This model was trained from scratch with 50 3D kidney MRI and scored a [Dice coefficient](https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient) of 0.929516 on over 50 test MRI.
