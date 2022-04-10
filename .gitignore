@@ -139,3 +139,6 @@ dmypy.json
 model/
 test/
 training/
+
+# Training info
+Traininginfo.xlsx
