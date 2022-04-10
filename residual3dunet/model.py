@@ -4,6 +4,9 @@ from utils.utils import number_of_features_per_level
 
 # Source: https://github.com/wolny/pytorch-3dunet
 class ResidualUNet3D(nn.Module):
+    """Reference
+    Residual 3DUnet model implementation based on https://arxiv.org/pdf/1706.00120.pdf.
+    """
     def __init__(self,
                 in_channels, 
                 out_channels,  
@@ -65,6 +68,10 @@ class ResidualUNet3D(nn.Module):
 
 
 class UNet3D(nn.Module):
+    """Reference:
+    `"3D U-Net: Learning Dense Volumetric Segmentation from Sparse Annotation"
+    <https://arxiv.org/pdf/1606.06650.pdf>`.
+    """
     def __init__(self,
                 in_channels, 
                 out_channels,  
