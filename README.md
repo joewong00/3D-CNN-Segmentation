@@ -5,11 +5,11 @@
 
 Data          |  Mask
 :-------------------------:|:-------------------------:
-<img src="images/data.gif" alt="3D data" width="300"/>  |  <img src="images/mask.gif" alt="3D mask" width="300"/>
+<img src="assets/data.gif" alt="3D data" width="300"/>  |  <img src="assets/mask.gif" alt="3D mask" width="300"/>
 
 
 ## Output
-<img src="images/predicted.gif" alt="predicted output" width="300"/>
+<img src="assets/predicted.gif" alt="predicted output" width="300"/>
 
 ---
 
@@ -29,7 +29,7 @@ Data          |  Mask
 ```
 git clone https://github.com/joewong00/3D-CNN-Segmentation.git
 ```
-2. Initialize local configuration and fetch data from submodule project (surface distance)
+2. Initialize local configuration and fetch data from submodule project ([surface distance](https://github.com/deepmind/surface-distance.git))
 ```
 git submodule update --init
 ```
@@ -54,10 +54,10 @@ This model was trained from scratch with 50 3D kidney MRI and scored a [Dice coe
 ### Network
 **Reference: [wolny/pytorch-3dunet](https://github.com/wolny/pytorch-3dunet)**
 #### 3D Residual UNet
-![3D Residual UNet](images/3dresunet.png)
+![3D Residual UNet](assets/3dresunet.png)
 
 #### 3D UNet
-![3D UNet](images/3dunet.png)
+![3D UNet](assets/3dunet.png)
 
 ## Usage
 **Note : Use Python 3.6 or newer**
