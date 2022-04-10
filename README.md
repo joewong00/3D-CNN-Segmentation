@@ -54,9 +54,11 @@ This model was trained from scratch with 50 3D kidney MRI and scored a [Dice coe
 ### Network
 **Reference: [wolny/pytorch-3dunet](https://github.com/wolny/pytorch-3dunet)**
 #### 3D Residual UNet
+Implementation based on https://arxiv.org/pdf/1706.00120.pdf
 ![3D Residual UNet](assets/3dresunet.png)
 
 #### 3D UNet
+Implementation based on [3D U-Net: Learning Dense Volumetric Segmentation from Sparse Annotation](https://arxiv.org/abs/1606.06650)
 ![3D UNet](assets/3dunet.png)
 
 ## Usage
