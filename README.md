@@ -1,7 +1,7 @@
 # 3D-CNN Segmentation
 <a href="https://pytorch.org/"><img src="https://img.shields.io/badge/PyTorch-1.7.1+cu110-red.svg?logo=PyTorch&style=for-the-badge" /></a>
 <a href="#"><img src="https://img.shields.io/badge/python-v3.6+-blue.svg?logo=python&style=for-the-badge" /></a>
-## Visualize Input and Mask
+## Visualize 3D Input and Mask of Kidney MRI
 
 Data          |  Mask
 :-------------------------:|:-------------------------:
