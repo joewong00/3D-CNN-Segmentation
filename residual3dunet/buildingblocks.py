@@ -18,7 +18,7 @@ class SingleConv(nn.Module):
             self.singleconv = nn.Sequential(
                 nn.GroupNorm(num_groups=num_groups, num_channels=in_channels),
                 nn.Conv3d(in_channels, out_channels, kernel_size, padding=padding, bias=False),
-                nn.ReLU(inplace=True)
+                nn.ELU(inplace=True)
             )
         
         else:
@@ -74,7 +74,7 @@ class ExtResNetBlock(nn.Module):
         # remove non-linearity from the 3rd convolution since it's going to be applied after adding the residual
         self.conv3 = SingleConv(out_channels, out_channels, kernel_size=kernel_size, num_groups=num_groups, activation=False)
 
-        self.non_linearity = nn.ReLU(inplace=True)
+        self.non_linearity = nn.ELU(inplace=True)
 
     def forward(self, x):
         

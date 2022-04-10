@@ -30,9 +30,6 @@ def main():
 	use_cuda = not args.no_cuda and torch.cuda.is_available()
 	device = torch.device("cuda" if use_cuda else "cpu")
 
-	model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
-
-	# If using multiple gpu
 	# Specify network
 	if args.network.casefold() == "unet3d":
 		model = UNet3D(in_channels=1, out_channels=1, testing=True).to(device)

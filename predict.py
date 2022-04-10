@@ -5,7 +5,7 @@ import os
 import nibabel as nib
 
 from residual3dunet.model import UNet3D, ResidualUNet3D
-from residual3dunet.res3dunetmodel import ResidualUNet3D
+# from residual3dunet.res3dunetmodel import ResidualUNet3D
 from torch.nn import DataParallel
 from utils.segmentation_statistics import SegmentationStatistics
 from utils.utils import load_checkpoint, read_data_as_numpy, numpy_to_nii, visualize2d, plot_sidebyside, plot_overlapped, preprocess, predict
