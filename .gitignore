@@ -136,7 +136,7 @@ dmypy.json
 .vscode
 
 # Model and output file
-model/
+trained_model/
 test/
 training/
 

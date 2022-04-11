@@ -61,6 +61,14 @@ Implementation based on https://arxiv.org/pdf/1706.00120.pdf
 Implementation based on [3D U-Net: Learning Dense Volumetric Segmentation from Sparse Annotation](https://arxiv.org/abs/1606.06650)
 ![3D UNet](assets/3dunet.png)
 
+#### Recurrent Residual 3D UNet (R2U3D)
+Implementation based on [R2U3D: Recurrent Residual 3D U-Net for Lung Segmentation](https://arxiv.org/pdf/2105.02290.pdf)
+
+- Architecture
+![R2U3D](assets/R2Unet3d.png)
+
+- Recurrent Residual Convolutional Unit (RRCU)
+![RRCU](assets/RRCU.png)
 ## Usage
 **Note : Use Python 3.6 or newer**
 ### Training

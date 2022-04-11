@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from residual3dunet.model import ResidualUNet3D
+
 class SingleConv(nn.Module):
     # Group Norm + Convolution + ReLU 
 
@@ -9,22 +11,22 @@ class SingleConv(nn.Module):
         super(SingleConv, self).__init__()
 
         # use only one group if the given number of groups is greater than the number of channels
-        if in_channels < num_groups:
+        if out_channels < num_groups:
             num_groups = 1
 
-        assert in_channels % num_groups == 0, f'Expected number of channels in input to be divisible by num_groups. num_channels={in_channels}, num_groups={num_groups}'
+        assert out_channels % num_groups == 0, f'Expected number of channels in input to be divisible by num_groups. num_channels={in_channels}, num_groups={num_groups}'
 
         if activation:
             self.singleconv = nn.Sequential(
-                nn.GroupNorm(num_groups=num_groups, num_channels=in_channels),
                 nn.Conv3d(in_channels, out_channels, kernel_size, padding=padding, bias=False),
+                nn.GroupNorm(num_groups=num_groups, num_channels=out_channels),
                 nn.ELU(inplace=True)
             )
         
         else:
             self.singleconv = nn.Sequential(
-                nn.GroupNorm(num_groups=num_groups, num_channels=in_channels),
                 nn.Conv3d(in_channels, out_channels, kernel_size, padding=padding, bias=False),
+                nn.GroupNorm(num_groups=num_groups, num_channels=out_channels),
             )
 
     def forward(self, x):
@@ -89,6 +91,45 @@ class ExtResNetBlock(nn.Module):
 
         return out
 
+
+class RRCU(nn.Module):
+    def __init__(self, out_channels, t=2,  kernel_size=3, num_groups=8, **kwargs):
+        super(RRCU, self).__init__()
+
+        self.t = t
+        self.conv = SingleConv(out_channels, out_channels, kernel_size=kernel_size, num_groups=num_groups)
+
+    def forward(self,x):
+
+        for i in range(self.t):
+            if i == 0:
+                x1 = self.conv(x)
+
+            x1 = self.conv(x + x1)
+
+        return x1
+
+class RRCNN_block(nn.Module):
+    def __init__(self, in_channels, out_channels ,t=2, single=False):
+        super(RRCNN_block,self).__init__()
+
+        if single:
+            self.RCNN = RRCU(out_channels,t=t)
+        
+        else:
+            self.RCNN = nn.Sequential(
+                RRCU(out_channels,t=t),
+                RRCU(out_channels,t=t)
+            )
+
+        self.Conv_1x1 = nn.Conv3d(in_channels, out_channels, kernel_size=1, stride=1, padding=0),
+
+    def forward(self,x):
+        x = self.Conv_1x1(x)
+        x1 = self.RCNN(x)
+        return x+x1
+
+
 class Encoder(nn.Module):
     def __init__(self, in_channels, out_channels, conv_kernel_size=3, pool_kernel_size=(1,2,2), basic_module=DoubleConv, pooling=True, num_groups=8, padding=1):
         super(Encoder, self).__init__()
@@ -120,8 +161,16 @@ class Decoder(nn.Module):
             self.upsampling = InterpolateUpsampling(mode)
             self.concat = True
 
-        else:
+        elif basic_module == ResidualUNet3D:
             self.upsampling = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=conv_kernel_size, stride=scale_factor, padding=padding)
+            self.concat = False 
+            in_channels = out_channels
+
+        else:
+            self.up = nn.Sequential(
+                nn.ConvTranspose3d(in_channels, out_channels, kernel_size=conv_kernel_size, stride=scale_factor, padding=padding),
+                nn.ReLU(inplace=True)
+            )
             self.concat = False 
             in_channels = out_channels
 

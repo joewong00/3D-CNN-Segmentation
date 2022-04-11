@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
 from utils.utils import load_checkpoint, plot_train_loss, save_model
-from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
+from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss, CoshLogDiceLoss
 
 import torch
 import argparse
@@ -18,11 +18,6 @@ def train(args, model, device, train_loader, optimizer, epoch, criterion):
     costs = []
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-
-        # assert data.shape[1] == model.in_channels, \
-        #             f'Network has been defined with {model.n_channels} input channels, ' \
-        #             f'but loaded images have {data.shape[1]} channels. Please check that ' \
-        #             'the images are loaded correctly.'
 
         data, target = data.float().to(device), target.float().to(device)
         
@@ -124,12 +119,7 @@ def main():
     # Hyperparameters
     optimizer = Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=50, gamma=args.gamma)
-    loss = DiceBCELoss()
-
-
-    # logging.info(f'Network:\n'
-    #             f'\t{model.in_channels} input channels\n'
-    #             f'\t{model.out_channels} output channels (classes)\n')
+    loss = CoshLogDiceLoss()
 
 
     # ------------------------------------ Data Loading ------------------------------------
