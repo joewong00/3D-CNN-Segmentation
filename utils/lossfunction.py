@@ -128,3 +128,25 @@ class FocalTverskyLoss(nn.Module):
         FocalTversky = (1 - Tversky)**gamma
                        
         return FocalTversky
+
+
+class CoshLogDiceLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(CoshLogDiceLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        
+        #comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = torch.sigmoid(inputs)       
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()                            
+        dice = (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        
+        diceloss = 1 - dice
+        
+        return torch.log((torch.exp(diceloss) + torch.exp(-diceloss)) / 2.0)
+
