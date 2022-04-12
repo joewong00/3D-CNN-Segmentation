@@ -21,6 +21,7 @@ Data          |  Mask
   - [Training](#training)
   - [Prediction](#prediction)
 - [Data](#data)
+- [Result](#result)
 - [Reference](#reference)
 
 ## Quick start
@@ -169,6 +170,9 @@ You can specify which model file to use with `--model model.pt`.
 The input images and target masks (for training) should be in the `dataset/train/T2/` and `dataset/train/T2Masks/` folders respectively. Original dataset have 3D size (W * H * D), they are **preprocessed** by adding channel dimension and written into the [h5](https://www.hdfgroup.org/solutions/hdf5/) files for dataloading.
 
 You can use your own dataset as long as you make sure it is loaded properly in `dataloader.py`.
+
+## Result
+The segmentation results using the above networks are still in progress...
 
 ---
 
