@@ -1,10 +1,14 @@
 import argparse
 from dataloader import MRIDataset
-from residual3dunet.model import ResidualUNet3D, UNet3D
+from model.resunet3d import ResUNet3D
+from model.r2unet3d import R2UNet3D
+from model.unet3d import UNet3D
 from torch.utils.data import DataLoader
 from torch.nn import DataParallel
 import torch
+import logging
 import torchvision.transforms as T
+from train import test
 
 from utils.evaluate import evaluate
 from utils.utils import load_checkpoint
@@ -26,6 +30,7 @@ def get_args():
 def main():
 
 	args = get_args()
+	logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 	use_cuda = not args.no_cuda and torch.cuda.is_available()
 	device = torch.device("cuda" if use_cuda else "cpu")
@@ -34,13 +39,17 @@ def main():
 	if args.network.casefold() == "unet3d":
 		model = UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
+	elif args.network.casefold() == "residualunet3d":
+		model = ResUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+
 	else:
-		model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+		model = R2UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
 	# If using multiple gpu
 	if torch.cuda.device_count() > 1 and use_cuda:
 		model = DataParallel(model)
 
+	# Load trained model
 	load_checkpoint(args.model, model ,device=device)
 		
 	test_kwargs = {'batch_size': args.batch_size}
@@ -48,11 +57,20 @@ def main():
 	if use_cuda:
 		cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
-                       'shuffle': True}
+                       'shuffle': False}
 		test_kwargs.update(cuda_kwargs)
 
-	testdataset = MRIDataset(train=False, transform=T.ToTensor())
+	# Data Loading
+	testdataset = MRIDataset(train=False, transform=T.ToTensor(), elastic=False)
 	test_loader = DataLoader(dataset=testdataset, **test_kwargs)
+
+	logging.info(f'''Starting testing:
+        Network:         {args.network}
+        Batch size:      {args.batch_size}
+        Testing size:   {len(test_loader)}
+        Device:          {device.type}
+		Mask Threshold:  {args.mask_threshold}
+    ''')
 
 	evaluate(model, test_loader, device, args.mask_threshold, show_stat=True)
 

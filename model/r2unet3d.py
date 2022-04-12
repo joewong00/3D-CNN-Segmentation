@@ -60,18 +60,15 @@ class RRCU(nn.Module):
 class RRConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels ,t=2, kernel_size=3):
         super(RRConvBlock,self).__init__()
-
-        self.repeat_module = nn.Sequential(
-            RRCU(out_channels=out_channels, t=t, kernel_size=kernel_size),
-            RRCU(out_channels=out_channels,t=t, kernel_size=kernel_size)
-        )
+        
+        self.module = RRCU(out_channels=out_channels,t=t, kernel_size=kernel_size)
 
         self.Conv_1x1 = nn.Conv3d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self,x):
 
         x = self.Conv_1x1(x)
-        x1 = self.repeat_module(x)
+        x1 = self.module(x)
 
         return x+x1
 
@@ -158,16 +155,25 @@ class R2UNet3D(nn.Module):
 
     def forward(self, x):
 
+        print(x.shape)
         x1 = self.down1(x)
+        print(x1.shape)
         x2 = self.down2(x1)
+        print(x2.shape)
         x3 = self.down3(x2)
+        print(x3.shape)
         x4 = self.down4(x3)
+        print(x4.shape)
 
         x = self.up1(x3, x4)
+        print(x.shape)
         x = self.up2(x2, x)
+        print(x.shape)
         x = self.up3(x1, x)
+        print(x.shape)
 
         y = self.final_conv(x)
+        print(y.shape)
 
         # apply final_activation (i.e. Sigmoid or Softmax) only during prediction. During training the network outputs
         if self.testing:

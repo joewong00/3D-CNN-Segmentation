@@ -17,7 +17,6 @@ def evaluate(net, dataloader, device, threshold, show_stat=False):
 
     stats = []
     net.eval()
-    num_val_batches = len(dataloader)
 
 	# Disable grad
     with torch.no_grad():

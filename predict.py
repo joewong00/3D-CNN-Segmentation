@@ -4,8 +4,10 @@ import logging
 import os
 import nibabel as nib
 
-from residual3dunet.model import UNet3D, ResidualUNet3D
-# from residual3dunet.res3dunetmodel import ResidualUNet3D
+# from residual3dunet.model import UNet3D, ResidualUNet3D
+from model.resunet3d import ResUNet3D
+from model.r2unet3d import R2UNet3D
+from model.unet3d import UNet3D
 from torch.nn import DataParallel
 from utils.segmentation_statistics import SegmentationStatistics
 from utils.utils import load_checkpoint, read_data_as_numpy, numpy_to_nii, visualize2d, plot_sidebyside, plot_overlapped, preprocess, predict
@@ -28,26 +30,31 @@ def get_args():
 def main():
 	
 	args = get_args()
+	logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 	filename = os.path.basename(args.input)
 	use_cuda = not args.no_cuda and torch.cuda.is_available()
 	device = torch.device("cuda" if use_cuda else "cpu")
 
-	assert args.network.casefold() == "unet3d" or args.network.casefold() == "residualunet3d", 'Network must be either (Unet3D / ResidualUnet3D)'
+	assert args.network.casefold() in ("unet3d", "residualunet3d","r2unet3d"), 'Network must be either (Unet3D / ResidualUnet3D)'
 
 	# Specify network
 	if args.network.casefold() == "unet3d":
 		model = UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
-	else:
-		model = ResidualUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+	elif args.network.casefold() == "residualunet3d":
+		model = ResUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
-	logging.info(f'Loading model {args.model}')
-	logging.info(f'Using device {device}')
+	else:
+		model = R2UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
 
 	# If using multiple gpu
 	if torch.cuda.device_count() > 1 and use_cuda:
 		model = DataParallel(model)
 
+	logging.info(f'Loading model {args.model}')
+	logging.info(f'Using device {device}')
+
+	# Loading trained model
 	load_checkpoint(args.model, model ,device=device)
 
 	logging.info('Model loaded!')
