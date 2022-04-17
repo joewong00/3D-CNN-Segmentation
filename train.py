@@ -1,20 +1,24 @@
-from re import I
-from torch.optim import Adam
-from dataloader import MRIDataset
+# Import models
 from model.resunet3d import ResUNet3D
 from model.r2unet3d import R2UNet3D
 from model.unet3d import UNet3D
-from torch.utils.data import DataLoader, random_split
+from model.r2attunet3d import R2AttUNet3D
+
+# Import packages
+from torch.optim import Adam
+from dataloader import MRIDataset
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
 from torch.nn import DataParallel
-from utils.utils import load_checkpoint, plot_train_loss, save_model
-from utils.evaluate import evaluate
-from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss, CoshLogDiceLoss
-
 import torch
 import argparse
 import torchvision.transforms as T
 import logging
+
+# Import utils
+from utils.utils import load_checkpoint, plot_train_loss, save_model
+from utils.evaluate import evaluate
+from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss, CoshLogDiceLoss
 
 
 # Training
@@ -44,27 +48,6 @@ def train(args, model, device, train_loader, optimizer, epoch, criterion):
     avgcost = sum(costs)/len(costs)
 
     return avgcost
-
-
-# def test(model, device, test_loader, epoch, loss):
-#     costs = []
-#     model.eval()
-#     with torch.no_grad():
-#         for batch_idx, (data, target) in enumerate(test_loader):
-#             data, target = data.float().to(device), target.float().to(device)
-#             output = model(data)
-
-#             cost = loss(output, target)
-
-#             costs.append(cost.item())
-
-#             print('Test Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-#                 epoch, batch_idx * len(data), len(test_loader.dataset),
-#                 100. * batch_idx / len(test_loader), cost.item()))
-
-#         avgcost = sum(costs)/len(costs)
-    
-#     return avgcost
 
 
 def get_args():
@@ -104,15 +87,17 @@ def main():
         train_kwargs.update(cuda_kwargs)
 
 
-    assert args.network.casefold() in ("unet3d", "residualunet3d","r2unet3d"), 'Network must be either (Unet3D / ResidualUnet3D)'
+    assert args.network.casefold() in ("unet3d", "residualunet3d","r2unet3d", "r2attunet3d"), 'Network must be (Unet3D / ResidualUnet3D / R2Unet3D / R2AttUnet3D)'
 
 	# Specify network
     if args.network.casefold() == "unet3d":
         model = UNet3D(in_channels=1, out_channels=1).to(device)
     elif args.network.casefold() == "residualunet3d":
         model = ResUNet3D(in_channels=1, out_channels=1).to(device)
-    else:
+    elif args.network.casefold() == "r2unet3d":
         model = R2UNet3D(in_channels=1, out_channels=1).to(device)
+    else:
+        model = R2AttUNet3D(in_channels=1, out_channels=1).to(device)
 
     # If using multiple gpu
     if torch.cuda.device_count() > 1 and use_cuda:
@@ -132,8 +117,9 @@ def main():
 
     # Train data transformation
     transformation = T.Compose([T.ToTensor(),
-                    T.RandomHorizontalFlip()
-                    # T.RandomCrop((240,240), padding=50, pad_if_needed=True)
+                    T.Resize((240,240)),
+                    T.RandomHorizontalFlip(),
+                    T.RandomCrop((240,240), padding=50, pad_if_needed=True)
                     ])
 
     traindataset = MRIDataset(train=True, transform=transformation, elastic=True)
@@ -149,7 +135,7 @@ def main():
                        'shuffle': False}
         test_kwargs.update(cuda_kwargs)
 
-    testdataset = MRIDataset(train=False, transform=T.ToTensor(), elastic=False)
+    testdataset = MRIDataset(train=False, transform=T.Compose([T.ToTensor(),T.Resize((240,240))]), elastic=False)
 
 	# Data Loading
     test_loader = DataLoader(dataset=testdataset, **test_kwargs)

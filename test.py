@@ -3,12 +3,12 @@ from dataloader import MRIDataset
 from model.resunet3d import ResUNet3D
 from model.r2unet3d import R2UNet3D
 from model.unet3d import UNet3D
+from model.r2attunet3d import R2AttUNet3D
 from torch.utils.data import DataLoader
 from torch.nn import DataParallel
 import torch
 import logging
 import torchvision.transforms as T
-from train import test
 
 from utils.evaluate import evaluate
 from utils.utils import load_checkpoint
@@ -37,13 +37,13 @@ def main():
 
 	# Specify network
 	if args.network.casefold() == "unet3d":
-		model = UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
-
+		model = UNet3D(in_channels=1, out_channels=1).to(device)
 	elif args.network.casefold() == "residualunet3d":
-		model = ResUNet3D(in_channels=1, out_channels=1, testing=True).to(device)
-
+		model = ResUNet3D(in_channels=1, out_channels=1).to(device)
+	elif args.network.casefold() == "r2unet3d":
+		model = R2UNet3D(in_channels=1, out_channels=1).to(device)
 	else:
-		model = R2UNet3D(in_channels=1, out_channels=1, testing=True).to(device)
+		model = R2AttUNet3D(in_channels=1, out_channels=1).to(device)
 
 	# If using multiple gpu
 	if torch.cuda.device_count() > 1 and use_cuda:
@@ -72,7 +72,7 @@ def main():
 		Mask Threshold:  {args.mask_threshold}
     ''')
 
-	evaluate(model, test_loader, device, args.mask_threshold, show_stat=True)
+	evaluate(model, test_loader, device, args.mask_threshold, show_stat=True, plot=True)
 
 
 if __name__ == '__main__':

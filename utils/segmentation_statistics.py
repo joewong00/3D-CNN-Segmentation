@@ -24,6 +24,12 @@ class SegmentationStatistics:
         self.dict = self.to_dict()
         self.df = self.to_df()
 
+    def truth_volume(self):
+        return np.sum(self.truth) * np.prod(self.zoom) / 1000
+
+    def prediction_volume(self):
+        return np.sum(self.prediction) * np.prod(self.zoom) / 1000
+
     def to_dict(self):
         return {'Dice': self.dice,
                 'Jaccard': self.jaccard, 
@@ -68,5 +74,5 @@ class SegmentationStatistics:
         return sd.compute_robust_hausdorff(self._surface_dist, percentile)
 
     def _volume_difference(self):
-        return (np.sum(self.prediction) - np.sum(self.truth)) * np.prod(self.zoom) / 1000
+        return self.prediction_volume() - self.truth_volume()
 

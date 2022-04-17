@@ -2,6 +2,7 @@ os
 re
 torch
 torchvision
+statsmodels
 numpy
 scipy
 nibabel

@@ -3,6 +3,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import statsmodels.api as sm
 import matplotlib.patches as mpatches
 import pandas as pd
 import nibabel as nib
@@ -271,6 +272,36 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
 
     return stats
 
+
+def bland_altman_plot(data1, data2, xlabel='Means', ylabel='Difference', title='Bland-Altman Plot', savefig=False, filename='bland-altman'):
+    """Bland Altman plot based on the 2 data
+    
+    Args:
+        data1 (np.adarray): data 1 in the form of 1-dimensional numpy array 
+        data2 (np.adarray): data 2 in the form of 1-dimensional numpy array
+        xlabel (str): x-axis label
+        ylabel (str): y-axis label
+        title (str): plot title
+        savefig (bool): If True, save the plot with the filename specified
+        filename (str): Output file name for the plot
+    """
+
+    f,ax = plt.subplots(1,figsize=(8,5))
+
+    sm.graphics.mean_diff_plot(data1,data2,ax=ax,limit_lines_kwds={'color':'red'})
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.subplots_adjust(top=0.8)
+
+    if savefig:
+        if not os.path.exists('output'):
+            os.mkdir('output')
+        plt.savefig(os.path.join('output',filename+'.png'))
+
+    plt.show()
+    
 
 
 ########################################### VISUALIZATION ###########################################
@@ -548,10 +579,13 @@ def read_data_from_h5(file_path, index, tensor=True):
 
     h5f = h5py.File(file_path,'r')
 
+    if index < 10:
+        index = '0'+str(index)
+
     if 'mask' in file_path.casefold():
-        data = h5f[f'MRI{index}_T2mask'][:]
+        data = h5f[f'MRI'+str(index)+'_T2mask'][:]
     else:
-        data = h5f[f'MRI{index}_T2'][:]
+        data = h5f[f'MRI'+str(index)+'_T2'][:]
     
     if tensor:
         data = torch.from_numpy(data)
