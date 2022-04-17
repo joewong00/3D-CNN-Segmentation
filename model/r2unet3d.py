@@ -1,6 +1,3 @@
-from turtle import down, forward
-from numpy import pad
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from utils.utils import number_of_features_per_level
