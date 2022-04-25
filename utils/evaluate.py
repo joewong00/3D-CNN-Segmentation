@@ -1,10 +1,11 @@
 import torch
 import numpy as np
+from scipy import stats as st
 from utils.segmentation_statistics import SegmentationStatistics
 from utils.utils import compute_average, bland_altman_plot
 
 
-def evaluate(net, dataloader, device, threshold, show_stat=False, plot=False):
+def evaluate(net, dataloader, device, threshold, show_stat=False, plot=False, ttest=False):
     """Evaluate the model using test data using different evaluation metrics (check utils/segmentation_statistics.py)
     Args:
         net (torch.nn.Module): Trained model
@@ -47,14 +48,25 @@ def evaluate(net, dataloader, device, threshold, show_stat=False, plot=False):
 		# Average
         print("All:")
         print(compute_average(stats, dataframe=True))
+        if ttest:
+        # Paired sample t-test result
+            print("T-Test Results: "+str(st.ttest_rel(pred_vol,truth_vol)))
 
 		# HC
         print("\nHealthy Control:")
         print(compute_average(stats,0,25,dataframe=True))
+        if ttest:
+        # Paired sample t-test result
+            print("T-Test Results: "+str(st.ttest_rel(pred_vol[0:25],truth_vol[0:25])))
+
 
 		# CKD
         print("\nChronic Kidney Disease:")
         print(compute_average(stats,25,None,dataframe=True))
+        if ttest:
+        # Paired sample t-test result
+            print("T-Test Results: "+str(st.ttest_rel(pred_vol[25:],truth_vol[25:])))
+
 
 
     if plot:

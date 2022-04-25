@@ -2,7 +2,6 @@
 from model.resunet3d import ResUNet3D
 from model.r2unet3d import R2UNet3D
 from model.unet3d import UNet3D
-from model.r2attunet3d import R2AttUNet3D
 
 # Import packages
 from torch.optim import Adam
@@ -18,7 +17,7 @@ import logging
 # Import utils
 from utils.utils import load_checkpoint, plot_train_loss, save_model
 from utils.evaluate import evaluate
-from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss, CoshLogDiceLoss
+from utils.lossfunction import DiceBCELoss, DiceLoss, IoULoss, FocalLoss, FocalTverskyLoss, TverskyLoss
 
 
 # Training
@@ -87,7 +86,7 @@ def main():
         train_kwargs.update(cuda_kwargs)
 
 
-    assert args.network.casefold() in ("unet3d", "residualunet3d","r2unet3d", "r2attunet3d"), 'Network must be (Unet3D / ResidualUnet3D / R2Unet3D / R2AttUnet3D)'
+    assert args.network.casefold() in ("unet3d", "residualunet3d","r2unet3d"), 'Network must be (Unet3D / ResidualUnet3D / R2Unet3D)'
 
 	# Specify network
     if args.network.casefold() == "unet3d":
@@ -96,8 +95,6 @@ def main():
         model = ResUNet3D(in_channels=1, out_channels=1).to(device)
     elif args.network.casefold() == "r2unet3d":
         model = R2UNet3D(in_channels=1, out_channels=1).to(device)
-    else:
-        model = R2AttUNet3D(in_channels=1, out_channels=1).to(device)
 
     # If using multiple gpu
     if torch.cuda.device_count() > 1 and use_cuda:
@@ -123,9 +120,6 @@ def main():
                     ])
 
     traindataset = MRIDataset(train=True, transform=transformation, elastic=True)
-
-    # Train validation set splitting 90/10
-    # train_set, val_set = random_split(traindataset, [int(len(traindataset)*0.9),int(len(traindataset)*0.1)])
 
     test_kwargs = {'batch_size': args.batch_size}
 

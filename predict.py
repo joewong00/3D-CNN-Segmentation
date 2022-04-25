@@ -16,7 +16,7 @@ from utils.utils import load_checkpoint, read_data_as_numpy, numpy_to_nii, visua
 def get_args():
 	# Test settings
 	parser = argparse.ArgumentParser(description='Predict masks from input images')
-	parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D)')
+	parser.add_argument('--network', '-u', default='Unet3D', help='Specify the network (Unet3D / ResidualUnet3D / R2Unet3D)')
 	parser.add_argument('--model', '-m', default='model.pt', metavar='FILE', help='Specify the path to the file in which the model is stored (default:model.pt)')
 	parser.add_argument('--input', '-i', metavar='INPUT', help='Path to the image file (format: nii.gz)', required=True)
 	parser.add_argument('--mask', '-l', metavar='INPUT', default=None, help='Path to the ground truth of the input image (if_available) (default:None)')

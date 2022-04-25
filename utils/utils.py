@@ -15,12 +15,13 @@ import os
 
 ########################################### PREPROCESS ###########################################
 
-def preprocess(data, rotate=True, to_tensor=True):
+def preprocess(data, rotate=True, to_tensor=True, normalize=False):
     """Preprocess a single input data (to depth first, rotate, make depth 14, to tensor)
     Args: 
         data (np.ndarray): 3D or 4D numpy array (W * H * D) or (C * W * H * D)
         rotate (bool): Rotate the input image 90 degree (W,H) - > (H,W)
         to_tensor (bool): Convert preprocessed data to torch tensors
+        normalize (bool): Normalize the data to have a mean of 0 and std of 1 (normalization is required when using R2U-Net)
     Returns:
         data (np.ndarray | torch.tensor): Processed Data
     """
@@ -39,6 +40,11 @@ def preprocess(data, rotate=True, to_tensor=True):
     # Make depth 14 (pad the image at the depth axis with 0)
     depth_pad = 14 - data.shape[0]
     data = np.pad(data, ((0,depth_pad),(0,0),(0,0)))
+
+    # Normalize data
+    if normalize:
+        # Test normalization
+        data = (data - data.mean())/data.std()
 
     # Convert to torch tensors
     if to_tensor:
@@ -157,7 +163,7 @@ def predict(model,input,threshold,device):
 
 ########################################### EVALUATION ###########################################
 
-def plot_train_loss(loss_train, loss_val):
+def plot_train_loss(loss_train, loss_val, title="Training and Validation Loss", x_label="Epoch", y_label="Loss"):
     """Plot the graph of loss during training, x value = number of epoch.
     Args: 
         loss_train (list): list of loss value for training set for every epoch
@@ -165,13 +171,16 @@ def plot_train_loss(loss_train, loss_val):
     """
     plt.plot(loss_train, label="Train loss")
     plt.plot(loss_val, label="Val loss")
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     plt.legend()
     plt.show()
     plt.savefig('Training Loss.png')
 
 
 
-def plot_train_accuracy(acc_train, acc_val):
+def plot_train_accuracy(acc_train, acc_val, title="Training and Validation Accuracy", x_label="Accuracy", y_label="Epoch"):
     """Plot the graph of accuracy during training, x value = number of epoch.
     Args: 
         acc_train (list): list of accuracy for training set for every epoch
@@ -179,13 +188,16 @@ def plot_train_accuracy(acc_train, acc_val):
     """
     plt.plot(acc_train, label="Train accuracy")
     plt.plot(acc_val, label="Val accuracy")
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     plt.legend()
     plt.show()
     plt.savefig('Training Accuracy.png')
 
 
 
-def plot_loss_from_log(log):
+def plot_loss_from_log(log, title="Train 1"):
     """Plot the graph of loss from training output log file, x value = number of epoch.
     Args: 
         log (path like): path to the training log file
@@ -194,8 +206,8 @@ def plot_loss_from_log(log):
     # Using regular expression to extract the loss value for each epoch
     with open(log) as f:
         fin = f.read()
-        testloss = re.findall(r"(test\sloss: )(\d.\d+)", fin)
-        trainloss = re.findall(r"(train\sloss: )(\d.\d+)", fin)
+        testloss = re.findall(r"(test\sloss: )(\d.\d+e?-?\d+)", fin)
+        trainloss = re.findall(r"(train\sloss: )(\d.\d+e?-?\d+)", fin)
 
     loss_test = []
     loss_train = []
@@ -204,7 +216,7 @@ def plot_loss_from_log(log):
         loss_test.append(float(testloss[i][1]))
         loss_train.append(float(trainloss[i][1]))
 
-    plot_train_loss(loss_train, loss_test)
+    plot_train_loss(loss_train, loss_test, title=title)
 
 
 
@@ -249,6 +261,7 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
     assert endidx != 0, 'Index cannot end at 0'
 
     stats = {}
+    std = []
 
     # Evaluation metrics
     metrics = ['Dice',
@@ -264,11 +277,15 @@ def compute_average(dicts, startidx=None, endidx=None, dataframe=False):
     for key in metrics:
         total = sum(stat[key] for stat in dicts[startidx:endidx])
         length = len(dicts[startidx:endidx])
+        statlist = list(stat[key] for stat in dicts[startidx:endidx])
+        std.append(np.std(statlist))
+
         stats[key] = total/length
 
     # convert into dataframe
     if dataframe:
         stats = pd.DataFrame(stats.items(), columns=['Metric','Score'])
+        stats['Standard Deviation'] = std
 
     return stats
 
