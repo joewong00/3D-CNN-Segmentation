@@ -172,7 +172,15 @@ The input images and target masks (for training) should be in the `dataset/train
 You can use your own dataset as long as you make sure it is loaded properly in `dataloader.py`.
 
 ## Result
-The segmentation results using the above networks are still in progress...
+Train Loss          |  Validation Loss
+:-------------------------:|:-------------------------:
+<img src="assets/trainloss.png" alt="train loss" width="300"/>  |  <img src="assets/valloss.png" alt="val loss" width="300"/>
+
+- Hyperparmater settings for each of the network
+![Hyperparameters](assets/hyperparameters.png)
+
+- Performance in Dice Score
+![Performance](assets/lossperformance.png)
 
 ---
 
