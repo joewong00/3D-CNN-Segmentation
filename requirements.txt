@@ -2,7 +2,7 @@ absl_py==1.0.0
 h5py==3.4.0
 matplotlib==3.4.3
 nibabel==3.2.1
-numpy==1.21.3
+numpy==1.22.0
 pandas==1.3.4
 scipy==1.7.1
 setuptools==58.3.0
